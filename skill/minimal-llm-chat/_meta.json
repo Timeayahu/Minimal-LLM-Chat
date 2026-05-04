@@ -1,0 +1,10 @@
+{
+  "name": "minimal-llm-chat",
+  "description": "6 节课渐进式教学：从零构建最小 LLM 命令行聊天助手",
+  "version": "1.0.0",
+  "type": "tutorial",
+  "author": "AI Tutor",
+  "tags": ["python", "llm", "cli", "tutorial"],
+  "difficulty": "beginner",
+  "lessons": 6
+}

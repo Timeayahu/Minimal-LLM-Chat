@@ -93,4 +93,4 @@ if __name__ == "__main__":
         {'role': 'user', 'content': '生异形吗你们哥几个，哥俩'}
 
     ]
-    ask_llm(messages)
+    know_inner_obj(messages)

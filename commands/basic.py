@@ -1,14 +1,13 @@
-from typing import Any
-
 from commands.command import Command
-from config import get_config_summary
+from config import MODEL, get_config_summary
+from models import AppContext
 
 
 class HelpCommand(Command):
     name = "/help"
     description = "查看帮助"
 
-    def execute(self, context: dict[str, Any], args: list[str]) -> bool:
+    def execute(self, context: AppContext, args: list[str]) -> bool:
         commands = context["commands"]
 
         print("可用命令：")
@@ -21,8 +20,8 @@ class ResetCommand(Command):
     name = "/reset"
     description = "清空上下文"
 
-    def execute(self, context: dict[str, Any], args: list[str]) -> bool:
-        messages = context["messages"]
+    def execute(self, context: AppContext, args: list[str]) -> bool:
+        messages = context["session"]["messages"]
         del messages[1:]
         print("上下文已清空")
         return True
@@ -32,8 +31,8 @@ class ModelCommand(Command):
     name = "/model"
     description = "查看当前模型"
 
-    def execute(self, context: dict[str, Any], args: list[str]) -> bool:
-        print("当前模型：", context["model"])
+    def execute(self, context: AppContext, args: list[str]) -> bool:
+        print("当前模型：", MODEL)
         return True
 
 
@@ -41,8 +40,8 @@ class CountCommand(Command):
     name = "/count"
     description = "查看当前对话记忆轮数"
 
-    def execute(self, context: dict[str, Any], args: list[str]) -> bool:
-        messages = context["messages"]
+    def execute(self, context: AppContext, args: list[str]) -> bool:
+        messages = context["session"]["messages"]
         user_message_count = sum(1 for msg in messages if msg["role"] == "user")
         print("当前聊天记忆轮数为：", user_message_count)
         return True
@@ -52,7 +51,7 @@ class ConfigCommand(Command):
     name = "/config"
     description = "查看当前配置"
 
-    def execute(self, context: dict[str, Any], args: list[str]) -> bool:
+    def execute(self, context: AppContext, args: list[str]) -> bool:
         config_summary = get_config_summary()
         print("当前配置：")
         for key, value in config_summary.items():

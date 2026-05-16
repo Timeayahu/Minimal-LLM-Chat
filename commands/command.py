@@ -1,7 +1,8 @@
 """命令系统的抽象基类。"""
 
 from abc import ABC, abstractmethod
-from typing import Any
+
+from models import AppContext
 
 
 class Command(ABC):
@@ -11,6 +12,6 @@ class Command(ABC):
     description: str = ""
 
     @abstractmethod
-    def execute(self, context: dict[str, Any], args: list[str]) -> bool:
+    def execute(self, context: AppContext, args: list[str]) -> bool:
         """执行命令，返回程序是否继续运行。"""
         raise NotImplementedError

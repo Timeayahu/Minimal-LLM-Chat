@@ -1,21 +1,52 @@
 import json
+from datetime import datetime
 from pathlib import Path
 
 
-HISTORY_FILE = Path("logs/history.json")
+LOGS_DIR = Path("logs")
 
 
-def load_history(): #path -> textio -> list
-    if not HISTORY_FILE.exists():
+def generate_session_name():
+    """自动生成会话名称，格式：chat_年月日_时分秒。"""
+    now = datetime.now()
+    return now.strftime("chat_%Y%m%d_%H%M%S")
+
+
+def load_history(session_name="default"):
+    """
+    加载指定会话的历史记录。
+
+    参数：
+        session_name: 会话名称（默认 "default"）
+
+    返回：
+        历史消息列表，如果不存在则返回 None
+
+    数据流：
+        session_name -> 生成文件路径 -> 读取 JSON -> 返回 list
+    """
+    file_path = LOGS_DIR / f"{session_name}.json"
+
+    if not file_path.exists():
         return None
 
-    with HISTORY_FILE.open("r", encoding="utf-8") as file: #TextIOWrapper
-        
-        return json.load(file) # change to list obj
+    with file_path.open("r", encoding="utf-8") as file:
+        return json.load(file)
 
 
-def save_history(messages): #上一个过程反过来
-    HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+def save_history(messages, session_name="default"):
+    """
+    保存消息列表到指定会话文件。
 
-    with HISTORY_FILE.open("w", encoding="utf-8") as file:
+    参数：
+        messages: 要保存的消息列表
+        session_name: 会话名称（默认 "default"）
+
+    数据流：
+        session_name -> 生成文件路径 -> 创建目录 -> 写入 JSON
+    """
+    file_path = LOGS_DIR / f"{session_name}.json"
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with file_path.open("w", encoding="utf-8") as file:
         json.dump(messages, file, ensure_ascii=False, indent=2)

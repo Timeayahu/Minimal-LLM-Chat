@@ -110,6 +110,24 @@ git push
 
 老师负责解释 Git 输出，而不是替学生盲目提交。遇到冲突、未跟踪文件、tracking 问题时，优先教学生读懂信息。
 
+### 学习画像记录规则
+
+维护 `LEARNER_PROFILE.md` 作为学生的长期学习档案。它不是功能日志，而是老师视角的阶段性评估。
+
+在以下情况更新：
+
+1. 完成一课或一个清晰的课程节点。
+2. 学生连续提出多个概念性问题，并出现明显认知突破。
+3. 阶段结束、复盘或用户明确要求总结评估。
+
+记录重点：
+
+- 当前处于软件开发、AI 应用开发、Agent 工程化学习的哪个位置。
+- 已掌握的知识和掌握程度，而不是只列功能完成情况。
+- 学生主动提出的问题、反馈和思考特点。
+- 当前短板、容易混淆的概念、下一步训练建议。
+- 老师评语可以写得充分一些，保留具体观察和判断。
+
 ---
 
 ## 第一阶段：从 0 到可用的最小 LLM Chat（已完成）
@@ -586,22 +604,430 @@ git status -> git add -> git commit -> git tag v0.2.0 -> git push -> git push --
 
 ---
 
-## 第三阶段：代码结构升级（规划）
+## 第三阶段：工程化重构（当前阶段）
 
 ### 阶段目标
 
-把目前集中在 `main.py` 的逻辑逐步拆开，让项目更容易读、改、测试。
+从"能跑"进化到"工程级"，建立代码质量意识和系统化开发能力。重点解决四大工程化问题：
 
-### 计划课时
+1. **单一职责** —— 拆解耦合，让每个模块只做一件事
+2. **数据建模** —— 用类替代字典，建立领域模型思维
+3. **异常处理** —— 掌握防御性编程的系统方法论
+4. **可观测性** —— 日志和测试，让代码行为可追踪、可验证
 
-| 课时 | 主题 | 核心能力 |
-|---|---|---|
-| 第 13 课 | 把命令处理拆成函数 | 函数职责、输入输出 |
-| 第 14 课 | 把 system prompt 配置化 | 配置管理、默认值 |
-| 第 15 课 | 给 `memory.py` 加异常处理 | try/except、坏文件恢复 |
-| 第 16 课 | 给 `llm_client.py` 加错误处理 | API 错误分类、友好提示 |
-| 第 17 课 | 增加最小测试 | 单元测试、可验证代码 |
-| 第 18 课 | 阶段复盘与重构总结 | 维护性、代码阅读能力 |
+---
+
+### 第 13 课：命令系统重构 —— 从面条代码到模块化
+
+**目标**：解决单一职责问题，学会识别和拆解耦合。
+
+**问题分析**：
+- `main()` 函数目前承担：程序入口、交互循环、命令解析、命令执行、状态管理
+- 新增命令需要改多处（if/elif 链、help 文本），违反开闭原则
+- 命令逻辑和程序框架混在一起
+
+**重构方案** —— 命令模式雏形：
+
+```
+重构前：
+main() → while 循环 → if/elif/else 链 → 每个分支直接处理逻辑
+
+重构后：
+commands/
+├── __init__.py      # 命令注册中心
+├── base.py          # 命令基类/接口
+├── help_cmd.py      # /help 命令
+├── new_cmd.py       # /new 命令
+├── reset_cmd.py     # /reset 命令
+└── ...
+
+main.py → 解析命令 → 查注册表 → 调用对应处理器 → 返回结果
+```
+
+**涉及文件**：
+- `main.py` —— 简化为主循环框架
+- `commands/` —— 新建目录，存放各命令处理器
+
+**核心知识点**：
+- 命令的本质：输入 → 解析 → 执行 → 输出
+- 可扩展的命令注册机制设计
+- 开闭原则：对扩展开放，对修改关闭
+- 接口/基类的设计原则
+
+**数据流变化**：
+
+```text
+重构前：
+input() → main 里的 if/elif → 直接执行 → print()
+
+重构后：
+input() → parse_command() → registry.get() → handler.execute() → print()
+```
+
+**课后练习**：
+新增 `/status` 命令，体验"只增加文件，不修改现有代码"的扩展方式。
+
+**Debug 练习**：
+故意让命令注册表返回 None，观察程序如何处理未知命令。
+
+**Git 练习**：
+`git diff` 对比重构前后行数变化，`git commit -m "Refactor: extract command handlers"`。
+
+---
+
+### 第 14 课：数据建模 —— 从字典到类
+
+**目标**：建立数据建模能力，理解面向对象设计。
+
+**问题分析**：
+当前数据全靠字典 `{"role": "user", "content": "hello"}`：
+- 没有类型提示，容易拼错 key
+- 无法附加方法（格式化、验证）
+- 全局状态 `messages` 和 `current_session` 到处传递
+
+**建模方案**：
+
+```
+models/
+├── message.py       # Message 数据类
+├── session.py       # Session 类（核心）
+└── config.py        # Config 类（验证和转换）
+
+核心：Session 类
+├── name: str                    # 会话名
+├── messages: List[Message]      # 消息列表
+├── system_prompt: str           # 当前系统提示
+├── add_message(role, content)   # 添加消息
+├── trim_history(limit)          # 裁剪历史
+├── to_api_format()              # 转成 API 格式
+└── save()                       # 持久化
+```
+
+**涉及文件**：
+- `models/message.py` —— 新建
+- `models/session.py` —— 新建，核心类
+- `models/__init__.py` —— 包入口
+- `main.py` —— 用 Session 替代字典操作
+- `memory.py` —— 改为处理 Session 对象
+
+**核心知识点**：
+- 领域模型（Domain Model）思维
+- `@dataclass` 的用法和好处
+- 封装 vs 暴露：哪些数据应该私有？
+- 行为归属：消息自己知道怎么格式化吗？
+- 数据流向：用户输入 → Message → Session → 存储/API
+
+**数据流变化**：
+
+```text
+重构前：
+dict → dict → dict → json.dump()
+
+重构后：
+user_input → Message → Session.add() → Session.save() → json.dump(Session.to_dict())
+```
+
+**课后练习**：
+给 `Session` 类增加 `get_stats()` 方法，返回对话统计（消息数、字符数、用户发言数）。
+
+**Debug 练习**：
+故意在 dataclass 里写错字段类型，观察 mypy/pylance 的报错信息。
+
+**Git 练习**：
+提交信息：`Add Session and Message data models`。
+
+---
+
+### 第 15 课：异常处理方法论 —— 防御性编程实战
+
+**目标**：建立系统化的异常处理思维，掌握 TRY 方法论。
+
+**核心方法论 —— TRY 框架**：
+
+```
+T - Think（预判）：哪些地方可能出错？
+R - Recover（恢复）：出错后程序该怎么办？
+Y - Yield（产出）：给用户什么反馈？
+```
+
+**分层异常处理清单**：
+
+| 层级 | 常见异常 | 处理策略 |
+|------|----------|----------|
+| 输入层 | 非法字符、Ctrl+C、空输入 | 捕获 KeyboardInterrupt，友好退出 |
+| 解析层 | JSON 损坏、配置格式错误 | 记录日志，回退到默认值 |
+| 网络层 | API 超时、连接失败 | 重试3次，然后优雅降级 |
+| 存储层 | 磁盘满、权限不足 | 尝试备用路径，或仅内存运行 |
+| 业务层 | 会话不存在、消息超限 | 给用户明确提示，不崩溃 |
+
+**代码组织**：
+
+```
+exceptions/
+├── base.py          # 业务异常基类 ChatError
+├── config_errors.py # ConfigFileNotFound, InvalidConfigValue
+├── api_errors.py    # APIConnectionError, APIStatusError
+└── storage_errors.py # StorageFullError, CorruptedHistoryError
+
+处理层级：
+1. 底层抛出具体异常
+2. 中间层转换异常（raise CustomError from original）
+3. 顶层统一处理（给用户友好提示）
+```
+
+**涉及文件**：
+- `exceptions/` —— 新建异常类层次结构
+- `config.py` —— 加配置验证和异常转换
+- `memory.py` —— 加文件操作异常处理
+- `llm_client.py` —— 加 API 异常分类
+- `main.py` —— 加顶层异常捕获
+
+**核心知识点**：
+- 什么时候捕获？什么时候抛出？
+- 异常链（`raise ... from ...`）的使用
+- 重试模式的实现（指数退避）
+- 优雅降级（graceful degradation）
+- 异常 vs 错误码：如何选择？
+
+**数据流**：
+
+```text
+底层出错 → 捕获原始异常 → 转换为业务异常 → 向上抛出 → 顶层处理 → 用户提示
+```
+
+**课后练习**：
+实现一个带重试的装饰器 `@retry(times=3, backoff=2)`。
+
+**Debug 练习**：
+故意损坏一个 JSON 历史文件，观察程序如何恢复（不崩溃、给出提示）。
+
+**Git 练习**：
+提交信息：`Add comprehensive exception handling`。
+
+---
+
+### 第 16 课：日志系统 —— 从 print 到专业日志
+
+**目标**：建立可观测性，理解日志级别和结构化日志。
+
+**日志级别使用规范**：
+
+| 级别 | 使用场景 | 示例 |
+|------|----------|------|
+| DEBUG | 开发调试（函数入口/出口、变量值） | `Loading history from: {path}` |
+| INFO | 正常运行信息 | `Session 'work' created` |
+| WARNING | 需要注意但不影响运行 | `History file size {size}MB, consider cleanup` |
+| ERROR | 功能受损但程序继续 | `Failed to save: {error}` |
+| CRITICAL | 程序即将崩溃 | `Configuration missing, exiting` |
+
+**实现方案**：
+
+```python
+# 日志配置
+logs/
+├── app.log          # 应用日志（INFO+）
+├── debug.log        # 详细日志（DEBUG+）
+├── error.log        # 错误日志（ERROR+）
+└── chat.log         # 对话记录（单独保留）
+
+# 使用方式
+logger.debug("Loading history: %s", file_path)
+logger.info("Session '%s' created", session_name)
+logger.warning("Large history file: %.1fMB", size_mb)
+logger.error("Save failed", exc_info=True)
+```
+
+**涉及文件**：
+- `logger.py` —— 新建日志配置模块
+- `main.py` —— 用 logger 替代 print
+- `session.py` —— 增加操作日志
+- `memory.py` —— 增加 I/O 日志
+
+**核心知识点**：
+- 为什么不要用 `print()` 输出调试信息？
+- 日志轮转（RotatingFileHandler）
+- 上下文注入（Formatter 加 session_id）
+- 日志脱敏（过滤 API Key）
+- 结构化日志（JSON format）
+
+**数据流**：
+
+```text
+代码事件 → logger.info() → Handler → Formatter → 输出到文件/控制台
+```
+
+**课后练习**：
+实现日志脱敏过滤器，自动隐藏 API Key。
+
+**Debug 练习**：
+调整日志级别为 DEBUG，观察程序启动时加载了哪些文件。
+
+**Git 练习**：
+提交信息：`Add structured logging system`。
+
+---
+
+### 第 17 课：单元测试 —— 可验证的代码
+
+**目标**：建立测试思维，学会写可测试的代码。
+
+**测试金字塔**：
+
+```
+        /\
+       /  \     E2E 测试（少而精）
+      /----\    
+     /      \   集成测试（API、存储）
+    /--------\  
+   /          \ 单元测试（多而快）
+  /------------\
+```
+
+**测试目录结构**：
+
+```
+tests/
+├── __init__.py
+├── conftest.py           # pytest 共享 fixture
+├── test_session.py       # Session 类测试
+├── test_commands.py      # 命令处理测试
+├── test_memory.py        # 存储层测试
+├── test_config.py        # 配置测试
+└── test_trim_logic.py    # 历史裁剪逻辑测试
+```
+
+**可测试性设计原则**：
+
+| 原则 | 反面教材 | 正面示例 |
+|------|----------|----------|
+| 依赖注入 | 函数里直接 `open()` | 传入 file_path 参数 |
+| 纯函数优先 | 修改全局状态 | 返回新对象 |
+| 接口抽象 | 直接调用 OpenAI API | 通过接口，测试时 mock |
+| 单一职责 | 一个函数做5件事 | 每个函数只做1件事 |
+
+**涉及文件**：
+- `tests/` —— 新建测试目录
+- `requirements-dev.txt` —— 加 pytest 依赖
+- `pyproject.toml` —— 加 pytest 配置
+- 各模块 —— 为配合测试可能需要小调整
+
+**核心知识点**：
+- `pytest` 基础用法（fixture, parametrize）
+- mock 外部依赖（unittest.mock）
+- 覆盖率概念（pytest-cov）
+- TDD（测试驱动开发）流程
+- 断言的艺术（测什么？不测什么？）
+
+**示例测试**：
+
+```python
+def test_session_trim_history():
+    """测试历史裁剪逻辑"""
+    session = Session("test")
+    # 添加 20 条消息（10 轮）
+    for i in range(10):
+        session.add_message("user", f"msg {i}")
+        session.add_message("assistant", f"reply {i}")
+    
+    # 执行裁剪，只保留 5 轮
+    session.trim_history(limit=5)
+    
+    # 验证：system + 5 user + 5 assistant = 11 条
+    assert len(session.messages) == 11
+    assert session.messages[0]["role"] == "system"
+```
+
+**课后练习**：
+给历史裁剪逻辑添加边界测试（空列表、正好 limit、超 limit）。
+
+**Debug 练习**：
+故意让一个测试失败，观察 pytest 的输出格式和错误定位。
+
+**Git 练习**：
+提交信息：`Add unit tests with pytest`。
+
+---
+
+### 第 18 课：阶段复盘 —— 代码审查与持续改进
+
+**目标**：建立代码审查能力，形成持续改进思维。
+
+**复盘内容**：
+
+1. **架构变化对比**
+   - 重构前 vs 重构后的文件结构
+   - 代码行数、函数数量、复杂度指标
+
+2. **设计模式应用清单**
+   - 命令模式（第13课）
+   - 数据模型/充血模型（第14课）
+   - 异常链（第15课）
+   - 依赖注入（第17课）
+
+3. **量化指标对比**
+
+   ```
+   重构前：
+   - main.py: 191 行，1 个函数，N 个职责
+   - 平均函数长度: 30+ 行
+   - 测试覆盖率: 0%
+   - pylint 错误: 待统计
+   
+   重构后：
+   - 模块数: 6+
+   - 平均每个模块: 40 行
+   - 测试用例: 15+
+   - 测试覆盖率: 85%+
+   - pylint 错误: 0
+   ```
+
+4. **学习总结模板**
+
+   ```markdown
+   ## 第三阶段学习总结
+   
+   我学到的工程化能力：
+   1. 单一职责的判断标准：一个函数/类修改的理由应该只有一个
+   2. 数据建模的思维方式：先想行为，再想数据，最后定接口
+   3. 异常处理的 TRY 框架：预判 → 恢复 → 产出
+   4. 可测试性的设计原则：依赖注入、纯函数、接口抽象
+   5. 日志不是 print：级别、轮转、结构化、脱敏
+   ```
+
+**涉及文件**：
+- `ARCHITECTURE.md` —— 新建架构文档
+- `README.md` —— 更新模块说明
+- `PROGRESS.md` —— 写学习总结
+- Git —— 打标签 `v0.3.0`
+
+**核心知识点**：
+- 代码审查（Code Review）检查清单
+- 技术债务的识别和处理
+- 架构文档的写作方法
+- 版本号语义（Semantic Versioning）
+- 持续改进的反馈循环
+
+**课后练习**：
+为项目写一份 `CONTRIBUTING.md`，说明如何添加新命令。
+
+**Git 练习**：
+```bash
+git tag -a v0.3.0 -m "第三阶段完成：工程化重构"
+git push origin v0.3.0
+```
+
+---
+
+### 第三阶段课程总览
+
+| 课时 | 核心能力 | 工程化产出 | 文件变化 |
+|------|----------|------------|----------|
+| 13 | 模块化设计 | 命令系统重构 | +commands/ 目录 |
+| 14 | 数据建模 | Session/Message 类 | +models/ 目录 |
+| 15 | 防御性编程 | 异常处理体系 | +exceptions/ 目录 |
+| 16 | 可观测性 | 结构化日志系统 | +logger.py |
+| 17 | 质量保证 | 测试套件 | +tests/ 目录 |
+| 18 | 技术写作 | 架构文档 | +ARCHITECTURE.md |
 
 ---
 
@@ -645,6 +1071,7 @@ git status -> git add -> git commit -> git tag v0.2.0 -> git push -> git push --
 
 | 概念 | 一句话解释 | 首次出现 |
 |------|-----------|---------|
+| **第一阶段基础** |||
 | API Key | 调用 API 的身份凭证，像密码一样不能泄漏 | 第 1 课 |
 | base_url | API 服务器地址 | 第 1 课 |
 | messages | 发给模型的对话消息列表 | 第 1 课 |
@@ -661,10 +1088,28 @@ git status -> git add -> git commit -> git tag v0.2.0 -> git push -> git push --
 | 类型转换 | 把字符串转成数字等其他类型 | 第 5 课 |
 | Git remote | 本地仓库记录的远程仓库地址 | 第 6 课 |
 | tracking | 本地分支和远程分支的对应关系 | 第 6 课 |
+| **第二阶段增强** |||
 | 列表切片 | 从列表中取出一部分元素 | 第 7 课 |
 | generator | 边产生边返回数据的函数形式 | 第 8 课 |
 | session | 一次独立聊天会话 | 第 11 课 |
 | Git tag | 给某个提交打版本标签 | 第 12 课 |
+| **第三阶段工程化** |||
+| 单一职责 | 一个函数/类只做一件事，修改的理由只有一个 | 第 13 课 |
+| 开闭原则 | 对扩展开放（加新功能不改旧代码），对修改关闭 | 第 13 课 |
+| 命令模式 | 把请求封装成对象，使命令的发起者和执行者解耦 | 第 13 课 |
+| 领域模型 | 用代码表达业务概念（数据+行为） | 第 14 课 |
+| dataclass | Python 装饰器，自动生成类的特殊方法 | 第 14 课 |
+| 封装 | 隐藏内部实现，只暴露必要的接口 | 第 14 课 |
+| 异常链 | 在抛出异常时保留原始异常信息（raise ... from ...） | 第 15 课 |
+| 优雅降级 | 出错时不崩溃，而是切换到简化版本继续运行 | 第 15 课 |
+| 防御性编程 | 预判可能出错的地方，主动处理异常情况 | 第 15 课 |
+| 日志级别 | DEBUG/INFO/WARNING/ERROR/CRITICAL 区分事件严重程度 | 第 16 课 |
+| 日志轮转 | 日志文件过大时自动创建新文件 | 第 16 课 |
+| 单元测试 | 测试最小功能单元，隔离外部依赖 | 第 17 课 |
+| fixture | pytest 的测试数据/环境准备机制 | 第 17 课 |
+| mock | 用假对象替代真实依赖，控制测试环境 | 第 17 课 |
+| 覆盖率 | 测试代码占生产代码的比例 | 第 17 课 |
+| 技术债务 | 为短期速度牺牲代码质量，后期需要偿还 | 第 18 课 |
 
 ---
 

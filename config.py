@@ -18,6 +18,24 @@ def require_api_key():
     return API_KEY
 
 
+def mask_api_key(api_key):
+    if not api_key:
+        return "未配置"
+    return api_key[:8] + "..."
+
+
+def get_config_summary():
+    return {
+        "api_key": mask_api_key(API_KEY),
+        "base_url": BASE_URL,
+        "model": MODEL,
+        "temperature": TEMPERATURE,
+        "max_tokens": MAX_TOKENS,
+        "max_history_rounds": MAX_HISTORY_ROUNDS,
+    }
+    
+
+
 if __name__ == "__main__":
     api_key = require_api_key()
     print("API key:", api_key[:8] + "...")

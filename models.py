@@ -16,15 +16,14 @@ class Message(TypedDict):
     content: str
 
 
-class Session(TypedDict):
-    """一个聊天会话。"""
+class ToolTrace(TypedDict):
+    """一次工具调用记录。"""
 
-    name: str
-    messages: list[Message]
-
-
-class AppContext(TypedDict):
-    """命令执行时能访问的应用上下文。"""
-
-    session: Session
-    commands: dict[str, Any]
+    created_at: str
+    user_input: str
+    tool_name: str
+    arguments: dict[str, Any]
+    ok: bool
+    content: str
+    error_type: str | None
+    final_answer: str

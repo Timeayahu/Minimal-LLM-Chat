@@ -6,7 +6,15 @@ from commands.basic import (
     ResetCommand,
 )
 from commands.command import Command
-from commands.session import ExitCommand, HistoryCommand, NewCommand, SaveCommand
+from commands.session import (
+    ExitCommand,
+    HistoryCommand,
+    LoadCommand,
+    NewCommand,
+    SaveCommand,
+    TraceCommand,
+)
+from commands.tool import ToolCommand
 
 
 def get_commands() -> dict[str, Command]:
@@ -19,7 +27,10 @@ def get_commands() -> dict[str, Command]:
         ConfigCommand(),
         SaveCommand(),
         HistoryCommand(),
+        TraceCommand(),
         NewCommand(),
+        LoadCommand(),
+        ToolCommand(),
         ExitCommand(),
     ]
 

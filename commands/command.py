@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from models import AppContext
+from app_context import AppContext
 
 
 class Command(ABC):

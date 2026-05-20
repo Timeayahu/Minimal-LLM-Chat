@@ -1,6 +1,6 @@
+from app_context import AppContext
 from commands.command import Command
 from config import MODEL, get_config_summary
-from models import AppContext
 
 
 class HelpCommand(Command):
@@ -21,8 +21,7 @@ class ResetCommand(Command):
     description = "清空上下文"
 
     def execute(self, context: AppContext, args: list[str]) -> bool:
-        messages = context["session"]["messages"]
-        del messages[1:]
+        context["session"].reset()
         print("上下文已清空")
         return True
 
@@ -41,8 +40,7 @@ class CountCommand(Command):
     description = "查看当前对话记忆轮数"
 
     def execute(self, context: AppContext, args: list[str]) -> bool:
-        messages = context["session"]["messages"]
-        user_message_count = sum(1 for msg in messages if msg["role"] == "user")
+        user_message_count = context["session"].count_user_messages()
         print("当前聊天记忆轮数为：", user_message_count)
         return True
 

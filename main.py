@@ -1,19 +1,39 @@
-from chat import handle_chat_message
+from agent import handle_agent_message
 from commands import get_commands
 from commands.parser import parse_command
-from memory import create_session
-from models import AppContext
+from app_context import AppContext
+from memory import Session
+from tools import get_tools
+
+try:
+    from prompt_toolkit import prompt
+except ImportError:
+    prompt = None
 
 
 def create_app_context() -> AppContext:
     """创建应用运行所需的上下文。"""
     commands = get_commands()
+    tools = get_tools()
     context: AppContext = {
-        "session": create_session(),
+        "session": Session(),
         "commands": commands,
+        "tools": tools,
     }
 
     return context
+
+
+def read_user_input() -> str:
+    """读取用户输入。
+
+    prompt_toolkit 对中文这类双宽字符的删除和光标移动支持更好。
+    如果环境里没有安装 prompt_toolkit，就退回 Python 内置 input。
+    """
+    if prompt is None:
+        return input("You: ").strip()
+
+    return prompt("You: ").strip()
 
 
 def main():
@@ -23,7 +43,10 @@ def main():
     commands = context["commands"]
 
     while True:
-        user_input = input("You: ")
+        user_input = read_user_input()
+        if not user_input:
+            continue
+
         command_name, args = parse_command(user_input)
         command = commands.get(command_name)
 
@@ -38,7 +61,7 @@ def main():
             print("输入 /help 查看可用命令。")
             continue
 
-        handle_chat_message(context["session"]["messages"], user_input) #统一用context来管理聊天记录
+        handle_agent_message(context, user_input)
 
 
 if __name__ == "__main__":

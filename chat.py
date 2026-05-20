@@ -1,13 +1,13 @@
 from config import MAX_HISTORY_ROUNDS
 from llm_client import stream_llm
-from memory import trim_messages
-from models import Message
+from memory import Session
 
 
-def handle_chat_message(messages: list[Message], user_input: str) -> None:
+def handle_chat_message(session: Session, user_input: str) -> None:
     """处理一轮普通聊天：保存用户输入、调用模型、保存回答。"""
+    messages = session.messages
     messages.append({"role": "user", "content": user_input})
-    trim_messages(messages, MAX_HISTORY_ROUNDS)
+    session.trim(MAX_HISTORY_ROUNDS)
 
     part_of_ans = []
     print("AI: ", end="", flush=True)

@@ -53,6 +53,11 @@ def decide_tool_call(user_input: str, tools: dict[str, ToolSpec]) -> dict[str, A
         return {
             "tool": None,
             "answer": f"模型没有返回合法 JSON：{raw_answer}",
+            "error": {
+                "kind": "planner_invalid_json",
+                "message": "模型没有返回合法 JSON 工具计划。",
+                "details": {"raw_answer": raw_answer},
+            },
         }
 
 

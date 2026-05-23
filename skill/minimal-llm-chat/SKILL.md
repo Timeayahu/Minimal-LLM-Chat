@@ -7,8 +7,8 @@ description: >-
 metadata:
   current_stage: 4
   completed_stage: 3
-  current_lesson: 19
-  completed_lessons: 18
+  current_lesson: 20
+  completed_lessons: 19
   difficulty: beginner-to-intermediate
   prerequisites:
     - Python 基础语法（变量、函数、循环、列表、字典）
@@ -49,9 +49,9 @@ metadata:
 
 - 当前项目名：Nexus Agent Kernel
 - 当前阶段：第四阶段，Tool Use 与 Agent Loop
-- 已完成课程：第 1-18 课
-- 下一课：第 19 课，ToolError 与更正式的运行 trace
-- 当前重点：整理工具错误边界和 trace 结构，为多步 Agent Loop 做准备
+- 已完成课程：第 1-19 课
+- 下一课：第 20 课，多步 Agent Loop 与工具安全边界
+- 当前重点：从单步工具调用升级为可控的多步 Agent Loop
 
 ## 教学节奏要求
 
@@ -75,7 +75,7 @@ Nexus Agent Kernel v0.1 应具备：
 2. 有统一的 `ToolSpec`、工具注册表、工具参数 schema、工具结果和工具错误。
 3. 有多步 Agent Loop，支持 plan、tool call、observation、final answer 和 `max_steps`。
 4. 有短期 Session 记忆、会话摘要和最小长期用户画像。
-5. 有最小 RAG，能导入资料、检索片段，并基于资料回答。
+5. 有基于成熟框架集成的 RAG 能力，能导入资料、检索片段，并基于资料回答。
 6. 有运行 trace，能看到每次工具调用的计划、参数、结果和最终回答。
 7. 有工具安全边界，包括参数校验、只读标记、危险工具确认、错误处理。
 8. 架构分层清楚，未来可以扩展不同 Agent 风格。
@@ -287,19 +287,27 @@ Python 把 tools 定义发给模型
 - 建立重要事件记忆。
 - 训练 Agent 判断什么值得记住，什么只是当前上下文。
 
-### 第六阶段：最小 RAG
+### 第六阶段：RAG 框架技术评审与集成实战
 
-目标：让 Agent 能基于本地资料回答，而不是只依赖模型参数记忆。
+目标：不再从零手写最小 RAG，而是基于成熟 AI Agent / RAG 框架做技术评审、选型和实战集成。
 
 计划方向：
 
-- 支持导入 Markdown / txt 等资料。
-- 文档切分。
-- 建立最小索引。
-- 检索相关片段。
-- 基于检索结果回答。
-- 回答时保留来源信息。
+- 先做 RAG / Agent 框架技术评审，比较候选框架的定位、抽象层级、生态成熟度、学习成本和可控性。
+- 候选方向包括但不限于 LlamaIndex、LangChain / LangGraph、Haystack、AutoGen 相关方案等；正式选型时必须基于当时最新文档和项目状态重新确认。
+- 最终选出一个主框架作为第六阶段实战对象。
+- 使用该框架完成资料导入、切分、索引、检索、引用来源和基于资料回答。
+- 重点学习框架里的 RAG 数据流，而不是重复实现基础检索逻辑。
+- 分析框架抽象如何映射到当前项目里的 `agent/`、`tools/`、`memory/` 和未来 `rag/` 边界。
+- 保留一个轻量适配层，避免业务代码被某个框架完全锁死。
 - 区分 Memory 和 RAG：Memory 记录用户与经历，RAG 检索外部知识。
+
+学习重点：
+
+- 如何做框架技术评审：评估功能、文档、维护活跃度、扩展点、调试体验、部署复杂度和迁移风险。
+- 如何阅读成熟框架的 RAG 抽象：Document、Node / Chunk、Embedding、Vector Store、Retriever、Reranker、Response Synthesizer。
+- 如何判断“用框架”与“自己写适配层”的边界。
+- 如何把外部框架接进自己的 Agent Kernel，而不是把项目完全改造成框架 demo。
 
 ### 第七阶段：Agent Kernel 重构
 

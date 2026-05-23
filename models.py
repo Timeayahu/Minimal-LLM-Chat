@@ -6,7 +6,7 @@
 - 不要像普通 class 那样用 Message(...) 创建对象。
 """
 
-from typing import Any, Literal, TypedDict
+from typing import Literal, TypedDict
 
 
 class Message(TypedDict):
@@ -14,16 +14,3 @@ class Message(TypedDict):
 
     role: Literal["system", "user", "assistant"]
     content: str
-
-
-class ToolTrace(TypedDict):
-    """一次工具调用记录。"""
-
-    created_at: str
-    user_input: str
-    tool_name: str
-    arguments: dict[str, Any]
-    ok: bool
-    content: str
-    error_type: str | None
-    final_answer: str

@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from models import Message, ToolTrace
+from agent.trace import ToolTrace
+from models import Message
 
 from memory.storage import generate_session_name, init_messages, save_session_data
 

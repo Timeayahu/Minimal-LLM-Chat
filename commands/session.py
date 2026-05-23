@@ -57,7 +57,12 @@ class TraceCommand(Command):
             print(f"Tool: {trace['tool_name']}")
             print(f"Arguments: {trace['arguments']}")
             print(f"OK: {trace['ok']}")
-            if trace["error_type"]:
+            error = trace.get("error")
+            if error:
+                print(f"Error: {error['kind']}")
+                print(f"Error message: {error['message']}")
+                print(f"Retryable: {error['retryable']}")
+            elif trace.get("error_type"):
                 print(f"Error: {trace['error_type']}")
             print(f"Content: {trace['content']}")
             print(f"Final: {trace['final_answer']}")

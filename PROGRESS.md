@@ -5,8 +5,8 @@
 - 项目：Nexus Agent Kernel（教学型通用 Agent 底座）
 - 开始日期：2026-05-03
 - 当前阶段：第四阶段 — Tool Use 与 Agent Loop
-- 当前课程：第 19 课准备中（ToolError 与更正式的运行 trace）
-- 已完成：第 1-18 课主体内容
+- 当前课程：第 20 课准备中（多步 Agent Loop 与工具安全边界）
+- 已完成：第 1-19 课主体内容
 - 课程路线：阶段式持续迭代
 - 长期目标：构建一个小而扎实、可扩展、可研究的通用 Agent Kernel，
   后续可扩展为 Hermes-style、Claude Code-style、Codex-style 等实验分支。
@@ -31,6 +31,7 @@
 - [x] 第四阶段 第 16 课：最小 Tool Use 入门
 - [x] 第四阶段 第 17 课：将 Tool Use 融入普通聊天
 - [x] 第四阶段 第 18 课：ToolSpec 标准化、ToolResult 与最小 trace
+- [x] 第四阶段 第 19 课：ToolError 与更正式的运行 trace
 
 ## 每日日志
 
@@ -360,3 +361,86 @@
   - 已完成最小工具调用 trace，并支持 `/trace` 查看、随 Session 保存和 `/load` 恢复。
 - 下次计划：
   - 进入第 19 课：补 `ToolError` 边界、更正式的 trace 结构，以及 Agent Loop 前的错误处理整理。
+
+### 2026-05-20
+
+- 课程路线调整：第六阶段从“最小 RAG 从零实现”改为“RAG 框架技术评审与集成实战”。
+- 调整原因：
+  - 学生已经熟悉 RAG 基础概念，不需要再把时间花在手写最小 loader / chunker / retriever。
+  - 第六阶段更适合训练真实工程里的框架选型、文档阅读、抽象理解和项目集成能力。
+- 新方向：
+  - 先评审 LlamaIndex、LangChain / LangGraph、Haystack、AutoGen 相关方案等候选框架。
+  - 正式进入第六阶段时，基于当时最新文档和项目状态选定一个主框架。
+  - 使用选定框架完成资料导入、切分、索引、检索、引用来源和基于资料回答。
+  - 保留轻量适配层，避免 Nexus Agent Kernel 被某个框架完全锁死。
+
+### 2026-05-23
+
+- 开始：第四阶段第 19 课 — ToolError 与更正式的运行 trace。
+- 今日学习：
+  - 识别当前痛点：`ToolResult` 只有 `content` 和 `error_type`，不足以表达错误是否可重试、是否适合展示给用户、是否有额外细节。
+  - 新增 `ToolError`，包含 `kind`、`message`、`retryable`、`user_visible`、`details`。
+  - 将 `ToolResult.failure()` 改为创建结构化 `ToolError`，同时保留 `error_type` 属性兼容旧读取方式。
+  - 将工具 trace 中的 `error_type` 升级为 `error` 结构。
+  - 更新 `/trace` 展示，让它能显示 `Error`、`Error message` 和 `Retryable`，并兼容旧 trace。
+- 设计判断：
+  - `ToolResult` 表示“工具执行的结果”，`ToolError` 表示“失败的性质和处理提示”，两者职责开始分开。
+  - `invalid_arguments` 标记为 `retryable=True`，因为后续多步 Agent Loop 可以尝试让模型修正参数后重试。
+  - 暂时不引入异常类层级，先用数据结构表达 Agent 可理解、可保存、可展示的错误状态。
+- 验证记录：
+  - `python -m py_compile tools/spec.py tools/basic.py models.py agent/chat.py commands/session.py` 通过。
+  - 手动验证 `echo.run({})` 返回 `ok=False`，并生成结构化 `ToolError`。
+  - 手动验证 `/trace` 可以展示新结构的 `error` 字段。
+- 下次计划：
+  - 将 Agent 层的未知工具、计划格式错误、参数格式错误也统一写入 trace。
+
+### 2026-05-23
+
+- 完成：第四阶段第 19 课 — ToolError 与更正式的运行 trace。
+- 第 19 课收尾结论：
+  - 已完成 `ToolError` 结构化，工具失败不再只靠字符串或 `error_type` 表达。
+  - 已完成 `ToolResult.failure()` 到 `ToolError` 的转换，保留 `error_type` 属性兼容旧代码。
+  - 已完成 trace 从 `error_type` 到 `error` 结构的升级。
+  - 已完成 `/trace` 对结构化错误的展示，并兼容旧 trace。
+  - 已将 trace 类型从 `models.py` 迁移到 `agent/trace.py`，让 `models.py` 回到通用数据模型职责。
+  - 已将 Agent 决策阶段错误写入 trace，包括 `planner_invalid_json`、`invalid_tool_name`、`unknown_tool`、`invalid_tool_arguments`。
+- 设计判断：
+  - 第 19 课完成了从“工具能失败”到“Agent 能理解、保存、展示失败”的升级。
+  - 当前仍保留 `ToolTrace` 命名，后续第 20 课进入多步 Agent Loop 时，再根据真实结构评估是否升级为 `AgentTrace` / `AgentStepTrace`。
+- 下次计划：
+  - 进入第 20 课：多步 Agent Loop 与工具安全边界，引入 `max_steps`，让 Agent 支持 plan -> act -> observe -> continue / final。
+
+### 2026-05-23
+
+- 继续：第四阶段第 19 课 — Agent 决策阶段错误写入 trace。
+- 今日学习：
+  - 识别当前痛点：之前 trace 只记录工具函数真正执行后的结果；如果模型计划格式错误、选择未知工具、参数形状错误，这些失败只会打印在屏幕上，无法复盘。
+  - 在 `tools/planner.py` 中为“模型没有返回合法 JSON”增加结构化 `error` 字段。
+  - 在 `agent/chat.py` 中新增 `_record_agent_error()`，统一记录工具执行前的 Agent 错误。
+  - 将 `planner_invalid_json`、`invalid_tool_name`、`unknown_tool`、`invalid_tool_arguments` 写入 trace。
+  - 这些错误都暂时标记为 `retryable=True`，为后续多步 Agent Loop 中“让模型修正后重试”做准备。
+- 设计判断：
+  - 工具执行失败和 Agent 决策失败都属于一次 Agent 运行过程的一部分，都应该进入 trace。
+  - 当前仍然使用 `ToolTrace` 这个名字，但语义已经开始靠近“Agent 运行记录”；后续进入多步 loop 时可继续升级命名。
+- 验证记录：
+  - `python -m py_compile agent/chat.py tools/planner.py tools/spec.py agent/trace.py commands/session.py` 通过。
+  - 手动调用 `_record_agent_error()`，确认 unknown tool 错误可以写入 `session.traces` 并通过 `/trace` 展示。
+- 下次计划：
+  - 评估是否将 `ToolTrace` 命名升级为更通用的 `AgentTrace` / `AgentStepTrace`，或先进入多步 Agent Loop 前的收尾整理。
+
+### 2026-05-23
+
+- 继续：第四阶段第 19 课 — trace 类型归属整理。
+- 今日学习：
+  - 识别当前痛点：`models.py` 同时放了通用 `Message` 和工具调用 trace 类型，职责开始混杂。
+  - 新增 `agent/trace.py`，用于放 Agent 运行过程中的 trace 数据结构。
+  - 将 `ToolErrorData` 和 `ToolTrace` 从 `models.py` 迁移到 `agent/trace.py`。
+  - `models.py` 现在只保留跨模块通用的 `Message`。
+  - `memory/session.py` 改为从 `agent.trace` 引入 `ToolTrace`。
+- 设计判断：
+  - `ToolTrace` 虽然记录工具调用，但它不是工具定义本身，而是 Agent 对一次运行过程的观察记录。
+  - 因此它放在 `agent/trace.py` 比放在 `tools/` 更贴近当前职责。
+- 验证记录：
+  - `python -m py_compile models.py agent/trace.py memory/session.py memory/storage.py agent/chat.py commands/session.py` 通过。
+- 下次计划：
+  - 将 Agent 层的未知工具、计划格式错误、参数格式错误也统一写入 trace。

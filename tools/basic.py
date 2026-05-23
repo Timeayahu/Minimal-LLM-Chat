@@ -10,6 +10,7 @@ def get_current_time(arguments: dict[str, Any]) -> ToolResult:
         return ToolResult.failure(
             "time 工具暂时不需要参数。",
             error_type="invalid_arguments",
+            retryable=True,
         )
 
     now = datetime.now()
@@ -23,6 +24,7 @@ def echo_text(arguments: dict[str, Any]) -> ToolResult:
         return ToolResult.failure(
             "echo 工具需要 text 参数。",
             error_type="invalid_arguments",
+            retryable=True,
         )
 
     return ToolResult.success(text)

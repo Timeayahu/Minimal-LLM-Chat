@@ -19,7 +19,8 @@ Hermes-style、Claude Code-style、Codex-style 等智能体架构亮点的实验
 - 支持 `/help`、`/reset`、`/save`、`/model`、`/exit` 命令
 - 支持 `/new` 创建新会话，支持 `/load` 恢复已保存会话
 - 支持 `/tool` 手动调用本地工具
-- 支持 `/trace` 查看最近工具调用记录
+- 支持 `/trace` 查看最近 Agent 步骤记录
+- 支持 `/confirm` 和 `/cancel` 控制需要确认的工具调用
 - 普通自然语言输入时，Agent 可自主判断是否需要调用工具
 - 通过 `.env` 配置模型、API 地址和生成参数
 
@@ -86,7 +87,9 @@ python main.py
 /load   查看或加载已保存会话
 /model  查看当前模型
 /tool   手动查看或调用本地工具
-/trace  查看最近工具调用记录
+/trace  查看最近 Agent 步骤记录
+/confirm 确认执行待确认工具
+/cancel 取消待确认工具
 /exit   保存并退出
 ```
 
@@ -99,6 +102,17 @@ python main.py
 ```
 
 其中最重要的概念是 `messages`。它是一个列表，保存了 system、user、assistant 三类消息。模型本身不会自动记住上一轮对话，我们每次调用 API 时把完整 `messages` 发过去，它才表现得像有记忆。
+
+## 当前进展
+
+截至第四阶段第 20 课，项目已经从“能聊天、能手动调用工具”的命令行程序，演进为一个具备最小 Agent Kernel 形态的教学项目：
+
+- Agent 支持多步 `plan -> act -> observe -> final` 循环，并通过 `MAX_AGENT_STEPS` 限制无限循环风险
+- 工具系统包含 `ToolSpec`、`ToolParameters`、`ToolResult`、`ToolError` 和统一错误码
+- 工具参数会在 `ToolSpec.run()` 边界统一校验，Agent 和 `/tool` 手动入口共享同一套规则
+- 运行过程会保存为 `AgentStepTrace`，可以通过 `/trace` 复盘工具选择、参数、结果、错误和最终回答
+- 需要确认的工具会进入 `pending_tool_call`，由 `/confirm` 或 `/cancel` 明确处理
+- 架构方向已确定为渐进式演进：短期保留教学实现，后续再拆出 `AgentRuntime`、`AgentService`、Policy、MemoryStore 等更正式的边界
 
 ## 长期目标
 

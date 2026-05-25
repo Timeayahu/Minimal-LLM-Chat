@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from agent.trace import ToolTrace
+from agent.trace import AgentStepTrace, PendingToolCall
 from models import Message
 
 from memory.storage import generate_session_name, init_messages, save_session_data
@@ -35,7 +35,8 @@ class Session:
 
     name: str = field(default_factory=generate_session_name)
     messages: list[Message] = field(default_factory=init_messages)
-    traces: list[ToolTrace] = field(default_factory=list)
+    traces: list[AgentStepTrace] = field(default_factory=list)
+    pending_tool_call: PendingToolCall | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Session":
@@ -44,6 +45,7 @@ class Session:
             name=data.get("name") or generate_session_name(),
             messages=data.get("messages") or init_messages(),
             traces=data.get("traces") or [],
+            pending_tool_call=data.get("pending_tool_call"),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -52,12 +54,14 @@ class Session:
             "name": self.name,
             "messages": self.messages,
             "traces": self.traces,
+            "pending_tool_call": self.pending_tool_call,
         }
 
     def reset(self) -> None:
         """清空会话消息，但保留 system prompt。"""
         del self.messages[1:]
         self.traces.clear()
+        self.pending_tool_call = None
 
     def count_user_messages(self) -> int:
         """统计当前会话中的用户消息数量。"""
@@ -81,10 +85,18 @@ class Session:
         while self.count_user_messages() > chat_limits:
             del self.messages[1:3]
 
-    def add_tool_trace(self, trace: ToolTrace) -> None:
-        """记录一次工具调用过程。"""
+    def add_agent_step_trace(self, trace: AgentStepTrace) -> None:
+        """记录一次 Agent Loop 步骤。"""
         self.traces.append(trace)
 
-    def get_recent_traces(self, limit: int = 10) -> list[ToolTrace]:
-        """获取最近的工具调用记录。"""
+    def get_recent_traces(self, limit: int = 10) -> list[AgentStepTrace]:
+        """获取最近的 Agent Loop 步骤记录。"""
         return self.traces[-limit:]
+
+    def set_pending_tool_call(self, pending_tool_call: PendingToolCall) -> None:
+        """保存一条等待用户确认的工具调用。"""
+        self.pending_tool_call = pending_tool_call
+
+    def clear_pending_tool_call(self) -> None:
+        """清空等待确认的工具调用。"""
+        self.pending_tool_call = None

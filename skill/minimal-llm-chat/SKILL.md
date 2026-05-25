@@ -45,6 +45,57 @@ metadata:
 做出一个小而扎实、可扩展、可研究的通用 Agent Kernel。
 ```
 
+## 架构北极星
+
+这个项目的目标不是写一个什么都会的 Agent，而是沉淀一个边界清晰、依赖可替换、能力可插拔、运行过程可观测的 Agent Kernel。
+
+后续每次新增能力或重构，都按这个标准判断：
+
+```text
+外部入口
+-> Adapter
+-> AgentRequest
+-> AgentService
+-> AgentRuntime
+-> LLM / Tools / Memory / Prompt / Policy / Trace
+-> AgentResponse
+-> Adapter 转成外部平台响应
+```
+
+核心边界：
+
+1. Interface Layer 使用 Adapter Pattern。CLI、HTTP、飞书、企业微信、Webhook 等入口只负责把外部事件转成标准 `AgentRequest`，再把 `AgentResponse` 转回平台消息。Adapter 不写推理逻辑、工具逻辑、业务判断或 Prompt 拼接。
+2. Application Layer 使用 Facade / Use Case 思想。对外提供稳定的 `AgentService`，负责接收标准请求、选择 Runtime 或 Agent Profile、处理应用级异常、返回标准响应。
+3. Runtime Layer 使用 Orchestrator Pattern。`AgentRuntime` 只编排一次 run：加载上下文、构造 messages、调用模型、处理 tool call、执行工具、整合观察结果、输出答案、记录 trace。
+4. Runtime 必须坚持 Dependency Injection。它依赖 `LLMClient`、`ToolRegistry`、`MemoryStore`、`PromptBuilder`、`Policy`、`TraceLogger` 等抽象接口，不自己读取环境变量、初始化 SDK、创建数据库连接或硬编码工具。
+5. Capability Layer 使用 Strategy / Plugin / Registry 思想。工具、记忆、规划、策略、安全护栏、输出格式化等能力都可以先简单实现，但接口要保留替换空间。
+6. Infrastructure Layer 使用 Provider / Repository / Adapter 思想。模型、数据库、文件系统、向量库、外部 API、日志系统等基础设施细节不能污染 Runtime。
+
+一句话压缩原则：
+
+```text
+入口可替换，模型可替换，工具可插拔，Memory 可替换，策略可扩展，Runtime 保持稳定。
+```
+
+## 当前重构判断
+
+现在暂不做一次性大重构。当前项目还处在第四阶段，核心学习目标是把 Tool Use、Agent Loop、ToolResult、ToolError、trace 和安全边界吃透。直接切到完整分层会增加太多抽象，容易让学习重心从“理解数据流”变成“搬目录和套接口”。
+
+更合适的策略是渐进式重构：
+
+1. 第四阶段末尾先做轻量边界整理，不改变用户行为。
+2. 第五阶段引入 Memory 抽象时，再把 `Session` 和未来长期记忆拆成不同 `MemoryStore` 策略。
+3. 第六阶段接入 RAG 框架时，用适配层保护内核，避免项目变成某个框架的 demo。
+4. 第七阶段集中完成 Agent Kernel 分层重构，补齐 `AgentRequest`、`AgentResponse`、`AgentService`、`AgentRuntime`、`PromptBuilder`、`Policy`、`TraceLogger` 等稳定接口。
+
+重构触发条件：
+
+- 同一个流程开始被 CLI、HTTP、IM Adapter 等多个入口复用。
+- `agent/chat.py` 中继续堆叠 planner、runtime、policy、trace、输出展示等多种职责。
+- LLM 调用、Prompt 拼接或 Memory 访问开始散落在多个模块。
+- 新增工具或能力需要频繁修改主循环。
+- trace 从简单列表升级为可查询、可持久化、可复盘的运行记录。
+
 ## 当前状态
 
 - 当前项目名：Nexus Agent Kernel
@@ -311,21 +362,65 @@ Python 把 tools 定义发给模型
 
 ### 第七阶段：Agent Kernel 重构
 
-目标：把项目整理成真正可扩展的 Agent Kernel。
+目标：把项目整理成真正可扩展的 Agent Kernel。这个阶段不是为了“看起来更工程化”，而是因为前面已经有了工具、Memory、RAG、trace、安全策略和多个入口的真实复杂度，需要把稳定内核和可替换能力分开。
+
+重构原则：
+
+- 先定义标准请求和响应：`AgentRequest`、`AgentResponse`。
+- 再建立对外门面：`AgentService`。
+- 再拆出核心编排器：`AgentRuntime`。
+- 再把能力组件通过依赖注入接入 Runtime。
+- 每一步都保持 CLI 当前行为可运行，避免一次性改坏主路径。
 
 目标结构：
 
 ```text
 Nexus Agent Kernel/
-├── agent/       # Agent Loop、planner、runtime、trace
-├── tools/       # ToolSpec、registry、schemas、results、权限边界
-├── memory/      # session、summary、profile、storage
-├── rag/         # loader、chunker、retriever、index
-├── commands/    # 用户直接控制程序的命令
-├── llm_client.py
-├── app_context.py
+├── interfaces/
+│   ├── cli_adapter.py        # CLI 输入输出适配
+│   ├── http_adapter.py       # 未来 HTTP 入口
+│   └── im_adapters/          # 未来飞书、企业微信等入口
+├── application/
+│   └── agent_service.py      # Facade / Use Case
+├── agent/
+│   ├── runtime.py            # AgentRuntime / Orchestrator
+│   ├── planner.py            # Planner strategy
+│   ├── prompt_builder.py     # Prompt / messages 构造
+│   ├── policy.py             # 工具权限、确认、拒绝、降级
+│   └── trace.py              # Trace 事件模型
+├── tools/
+│   ├── spec.py               # ToolSpec、ToolResult、ToolError
+│   ├── registry.py           # ToolRegistry
+│   └── basic.py
+├── memory/
+│   ├── session.py            # 短期会话
+│   ├── store.py              # MemoryStore 抽象
+│   ├── profile.py            # 用户画像
+│   └── storage.py            # 文件 / SQLite 等实现
+├── rag/
+│   ├── adapter.py            # RAG 框架适配层
+│   ├── retriever.py
+│   └── index.py
+├── infrastructure/
+│   ├── llm_provider.py       # LLMClient / Provider
+│   ├── config.py
+│   └── repositories.py
+├── commands/                 # 用户直接控制程序的命令
+├── models.py                 # AgentRequest / AgentResponse 等核心类型
 └── main.py
 ```
+
+推荐拆分顺序：
+
+1. 从 `models.py` 增加 `AgentRequest` / `AgentResponse` 开始，只做类型和数据流，不改行为。
+2. 把 `main.py` 普通输入分支改为通过 `CLIAdapter -> AgentService` 调用。
+3. 从 `agent/chat.py` 拆出 `AgentRuntime.run(request)`，保留当前多步 loop 行为。
+4. 把 `tools` 的 `dict[str, ToolSpec]` 升级为 `ToolRegistry`。
+5. 把 `llm_client.py` 从模块级函数升级为可注入 `LLMClient` / `LLMProvider`。
+6. 把 Prompt 组装从 planner 和 chat 里拆到 `PromptBuilder`。
+7. 把工具只读、确认、拒绝、降级逻辑拆到 `Policy`。
+8. 把 session 内 trace 列表升级为 `TraceLogger` 接口，先用内存实现，再考虑文件或数据库。
+9. 增加 HTTP / IM Adapter 时，只接入 `AgentService`，不修改 Runtime。
 
 ### 第八阶段：顶级 Agent 亮点实验
 
@@ -452,3 +547,13 @@ git push
 | Agent Loop | plan -> act -> observe -> final 的循环 | 第四阶段后续 |
 | Memory | Agent 对用户、会话、重要事件的可召回记录 | 第五阶段 |
 | RAG | 基于外部资料检索片段并回答 | 第六阶段 |
+| Adapter | 把 CLI、HTTP、IM 等外部协议转成统一 AgentRequest / AgentResponse | 第七阶段 |
+| AgentService | 对外稳定门面，隐藏 Runtime 内部依赖 | 第七阶段 |
+| AgentRuntime | 只负责编排一次 Agent run 的核心运行时 | 第七阶段 |
+| Dependency Injection | Runtime 依赖抽象组件，由外部注入具体实现 | 第七阶段 |
+| ToolRegistry | 注册、发现和调用工具的统一入口 | 第七阶段 |
+| PromptBuilder | 集中构造 system/user/tool 等 messages，避免 Prompt 拼接散落 | 第七阶段 |
+| Policy | 判断工具调用是否允许、是否确认、是否拒绝或降级 | 第七阶段 |
+| LLMProvider | 屏蔽 OpenAI-compatible、Claude、本地模型等模型服务差异 | 第七阶段 |
+| Repository | 屏蔽会话、记忆、trace 等底层存储差异 | 第七阶段 |
+| TraceLogger | 记录一次 Agent run 的模型调用、工具调用、错误、耗时和输出 | 第七阶段 |

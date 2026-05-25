@@ -1,3 +1,6 @@
+from datetime import datetime
+
+from agent.chat import continue_agent_loop_after_confirmed_tool
 from app_context import AppContext
 from commands.command import Command
 from memory import Session, list_session_names, load_session_data
@@ -41,18 +44,20 @@ class HistoryCommand(Command):
 
 class TraceCommand(Command):
     name = "/trace"
-    description = "查看最近工具调用记录"
+    description = "查看最近 Agent 步骤记录"
 
     def execute(self, context: AppContext, args: list[str]) -> bool:
         traces = context["session"].get_recent_traces()
 
         if not traces:
-            print("暂无工具调用记录。")
+            print("暂无 Agent 步骤记录。")
             return True
 
-        print("--- 最近工具调用 ---")
+        print("--- 最近 Agent 步骤 ---")
         for trace in traces[-10:]:
             print(f"Time: {trace['created_at']}")
+            if trace.get("step") is not None:
+                print(f"Step: {trace['step']}")
             print(f"User: {trace['user_input']}")
             print(f"Tool: {trace['tool_name']}")
             print(f"Arguments: {trace['arguments']}")
@@ -68,6 +73,90 @@ class TraceCommand(Command):
             print(f"Final: {trace['final_answer']}")
             print()
 
+        return True
+
+
+class ConfirmCommand(Command):
+    name = "/confirm"
+    description = "确认执行待确认工具"
+
+    def execute(self, context: AppContext, args: list[str]) -> bool:
+        session = context["session"]
+        pending_tool_call = session.pending_tool_call
+
+        if pending_tool_call is None:
+            print("当前没有等待确认的工具调用。")
+            return True
+
+        tools = context["tools"]
+        tool_name = pending_tool_call["tool_name"]
+        tool = tools.get(tool_name)
+        if tool is None:
+            print(f"待确认工具不存在：{tool_name}")
+            session.clear_pending_tool_call()
+            return True
+
+        result = tool.run(pending_tool_call["arguments"])
+        tool_result_text = result.to_text()
+
+        print(f"Tool[confirm:{tool_name}]: {tool_result_text}")
+
+        session.add_agent_step_trace(
+            {
+                "created_at": datetime.now().isoformat(timespec="seconds"),
+                "user_input": pending_tool_call["user_input"],
+                "step": pending_tool_call["step"],
+                "tool_name": tool_name,
+                "arguments": pending_tool_call["arguments"],
+                "ok": result.ok,
+                "content": result.content,
+                "error": result.error.to_dict() if result.error else None,
+                "final_answer": "",
+            }
+        )
+        session.clear_pending_tool_call()
+        continue_agent_loop_after_confirmed_tool(
+            context=context,
+            user_input=pending_tool_call["user_input"],
+            confirmed_step=pending_tool_call["step"],
+            tool_name=tool_name,
+            tool_arguments=pending_tool_call["arguments"],
+            tool_result_text=tool_result_text,
+            tool_ok=result.ok,
+        )
+        return True
+
+
+class CancelCommand(Command):
+    name = "/cancel"
+    description = "取消待确认工具"
+
+    def execute(self, context: AppContext, args: list[str]) -> bool:
+        session = context["session"]
+        pending_tool_call = session.pending_tool_call
+
+        if pending_tool_call is None:
+            print("当前没有等待取消的工具调用。")
+            return True
+
+        final_answer = f"已取消 {pending_tool_call['tool_name']} 工具调用。"
+        print(f"AI: {final_answer}")
+
+        session.add_agent_step_trace(
+            {
+                "created_at": datetime.now().isoformat(timespec="seconds"),
+                "user_input": pending_tool_call["user_input"],
+                "step": pending_tool_call["step"],
+                "tool_name": pending_tool_call["tool_name"],
+                "arguments": pending_tool_call["arguments"],
+                "ok": False,
+                "content": final_answer,
+                "error": None,
+                "final_answer": final_answer,
+            }
+        )
+        session.messages.append({"role": "assistant", "content": final_answer})
+        session.clear_pending_tool_call()
         return True
 
 
@@ -116,7 +205,7 @@ class LoadCommand(Command):
         print(
             f"System: 已加载会话 '{loaded_session.name}'，"
             f"包含 {len(loaded_session.messages)} 条消息和 "
-            f"{len(loaded_session.traces)} 条工具调用记录。"
+            f"{len(loaded_session.traces)} 条 Agent 步骤记录。"
         )
         return True
 

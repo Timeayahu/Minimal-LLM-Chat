@@ -1,5 +1,5 @@
 from tools.basic import echo_text, get_current_time
-from tools.spec import ToolSpec
+from tools.spec import ToolParameters, ToolSpec
 
 
 def get_tools() -> dict[str, ToolSpec]:
@@ -9,28 +9,39 @@ def get_tools() -> dict[str, ToolSpec]:
             name="time",
             description="获取当前本地时间，不需要参数。",
             func=get_current_time,
-            parameters={
-                "type": "object",
-                "properties": {},
-                "required": [],
-                "additionalProperties": False,
-            },
+            parameters=ToolParameters(
+                properties={},
+                required=[],
+            ),
         ),
         ToolSpec(
             name="echo",
             description="原样返回输入文本，参数是要返回的文本。",
             func=echo_text,
-            parameters={
-                "type": "object",
-                "properties": {
+            parameters=ToolParameters(
+                properties={
                     "text": {
                         "type": "string",
                         "description": "要原样返回的文本。",
                     },
                 },
-                "required": ["text"],
-                "additionalProperties": False,
-            },
+                required=["text"],
+            ),
+        ),
+        ToolSpec(
+            name="confirm_echo",
+            description="需要用户确认后，才会原样返回输入文本。",
+            func=echo_text,
+            parameters=ToolParameters(
+                properties={
+                    "text": {
+                        "type": "string",
+                        "description": "要在确认后原样返回的文本。",
+                    },
+                },
+                required=["text"],
+            ),
+            requires_confirmation=True,
         ),
     ]
 

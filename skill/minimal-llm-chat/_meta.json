@@ -1,10 +1,10 @@
 {
-  "name": "minimal-llm-chat",
-  "description": "6 节课渐进式教学：从零构建最小 LLM 命令行聊天助手",
-  "version": "1.0.0",
+  "name": "nexus-agent-kernel",
+  "description": "阶段式教学项目：从最小 LLM 命令行聊天助手演进为边界清晰、依赖可替换、能力可插拔、运行可观测的通用 Agent Kernel",
+  "version": "2.0.0",
   "type": "tutorial",
   "author": "AI Tutor",
-  "tags": ["python", "llm", "cli", "tutorial"],
-  "difficulty": "beginner",
-  "lessons": 6
+  "tags": ["python", "llm", "agent", "agent-kernel", "tool-use", "memory", "rag", "cli", "tutorial"],
+  "difficulty": "beginner-to-intermediate",
+  "lessons": 8
 }

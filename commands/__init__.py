@@ -7,6 +7,8 @@ from commands.basic import (
 )
 from commands.command import Command
 from commands.session import (
+    CancelCommand,
+    ConfirmCommand,
     ExitCommand,
     HistoryCommand,
     LoadCommand,
@@ -28,6 +30,8 @@ def get_commands() -> dict[str, Command]:
         SaveCommand(),
         HistoryCommand(),
         TraceCommand(),
+        ConfirmCommand(),
+        CancelCommand(),
         NewCommand(),
         LoadCommand(),
         ToolCommand(),

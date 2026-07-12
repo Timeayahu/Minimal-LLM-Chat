@@ -18,6 +18,8 @@ Hermes-style、Claude Code-style、Codex-style 等智能体架构亮点的实验
 - 启动时自动读取历史
 - 支持 `/help`、`/reset`、`/save`、`/model`、`/exit` 命令
 - 支持 `/new` 创建新会话，支持 `/load` 恢复已保存会话
+- 支持 `/remember` 保存长期记忆，支持 `/memories`、`/memory`、`/forget` 管理长期记忆
+- 普通聊天和 Agent 规划会读取长期记忆作为上下文参考
 - 支持 `/tool` 手动调用本地工具
 - 支持 `/trace` 查看最近 Agent 步骤记录
 - 支持 `/confirm` 和 `/cancel` 控制需要确认的工具调用
@@ -36,6 +38,8 @@ ai-learning-chat/
 ├── commands/         # 命令系统
 ├── tools/            # 工具系统
 ├── memory/           # 会话模型、历史读取和保存
+├── memory_data/      # 本地长期记忆目录，不提交 Git
+├── docs/             # 阶段复盘和架构说明
 ├── models.py         # 轻量类型定义
 ├── requirements.txt  # Python 依赖
 ├── .env.example      # 配置模板
@@ -85,6 +89,10 @@ python main.py
 /save   保存当前对话
 /new    自动创建新会话
 /load   查看或加载已保存会话
+/remember [类型] 内容 保存一条长期记忆，类型可选 fact/preference/learning
+/memories 查看最近长期记忆
+/memory 记忆ID 查看一条长期记忆详情
+/forget 记忆ID 删除一条长期记忆
 /model  查看当前模型
 /tool   手动查看或调用本地工具
 /trace  查看最近 Agent 步骤记录
@@ -105,14 +113,21 @@ python main.py
 
 ## 当前进展
 
-截至第四阶段第 20 课，项目已经从“能聊天、能手动调用工具”的命令行程序，演进为一个具备最小 Agent Kernel 形态的教学项目：
+截至第五阶段第 22 课，项目已经从“能聊天、能手动调用工具”的命令行程序，演进为一个具备最小 Agent Kernel 形态的教学项目：
 
 - Agent 支持多步 `plan -> act -> observe -> final` 循环，并通过 `MAX_AGENT_STEPS` 限制无限循环风险
 - 工具系统包含 `ToolSpec`、`ToolParameters`、`ToolResult`、`ToolError` 和统一错误码
 - 工具参数会在 `ToolSpec.run()` 边界统一校验，Agent 和 `/tool` 手动入口共享同一套规则
 - 运行过程会保存为 `AgentStepTrace`，可以通过 `/trace` 复盘工具选择、参数、结果、错误和最终回答
 - 需要确认的工具会进入 `pending_tool_call`，由 `/confirm` 或 `/cancel` 明确处理
+- 长期记忆开始从短期 Session 中分离，通过 `MemoryStore` 保存到本地 JSON 文件
+- 长期记忆会在调用模型前临时注入 prompt，不污染 `Session.messages`
 - 架构方向已确定为渐进式演进：短期保留教学实现，后续再拆出 `AgentRuntime`、`AgentService`、Policy、MemoryStore 等更正式的边界
+
+相关复盘文档：
+
+- [Tool Use Flow](docs/TOOL_USE_FLOW.md)
+- [Memory Flow](docs/MEMORY_FLOW.md)
 
 ## 长期目标
 

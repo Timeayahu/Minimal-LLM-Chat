@@ -3,8 +3,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from config import SYSTEM_PROMPT
 from models import Message
-from prompts import SYSTEM_PROMPT
 
 
 LOGS_DIR = Path("logs")
@@ -24,33 +24,6 @@ def list_session_names() -> list[str]:
     return sorted(file_path.stem for file_path in LOGS_DIR.glob("*.json"))
 
 
-def load_history(session_name: str) -> list[Message] | None:
-    """
-    加载指定会话的历史记录。
-
-    参数：
-        session_name: 会话名称（默认 "default"）
-
-    返回：
-        历史消息列表，如果不存在则返回 None
-
-    数据流：
-        session_name -> 生成文件路径 -> 读取 JSON -> 返回 list
-    """
-    file_path = LOGS_DIR / f"{session_name}.json"
-
-    if not file_path.exists():
-        return None
-
-    with file_path.open("r", encoding="utf-8") as file:
-        data = json.load(file)
-
-    if isinstance(data, dict):
-        return data.get("messages", [])
-
-    return data
-
-
 def init_messages() -> list[Message]:
     """
     初始化全新的消息列表。
@@ -59,24 +32,6 @@ def init_messages() -> list[Message]:
         只包含 system prompt 的消息列表
     """
     return [{"role": "system", "content": SYSTEM_PROMPT}]
-
-
-def save_history(messages: list[Message], session_name: str) -> None:
-    """
-    保存消息列表到指定会话文件。
-
-    参数：
-        messages: 要保存的消息列表
-        session_name: 会话名称（默认 "default"）
-
-    数据流：
-        session_name -> 生成文件路径 -> 创建目录 -> 写入 JSON
-    """
-    file_path = LOGS_DIR / f"{session_name}.json"
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with file_path.open("w", encoding="utf-8") as file:
-        json.dump(messages, file, ensure_ascii=False, indent=2)
 
 
 def load_session_data(session_name: str) -> dict[str, Any] | None:

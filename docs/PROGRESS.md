@@ -4,9 +4,9 @@
 
 - 项目：Nexus Agent Kernel（教学型通用 Agent 底座）
 - 开始日期：2026-05-03
-- 当前阶段：第四阶段 — Tool Use 与 Agent Loop
-- 当前课程：第 20 课已完成（多步 Agent Loop 与工具安全边界）
-- 已完成：第 1-20 课主体内容
+- 当前阶段：第五阶段 — Memory 进阶
+- 当前课程：第 22 课进行中（区分短期 Session 与长期 Memory）
+- 已完成：第 1-21 课主体内容
 - 课程路线：阶段式持续迭代
 - 长期目标：构建一个小而扎实、可扩展、可研究的通用 Agent Kernel，
   后续可扩展为 Hermes-style、Claude Code-style、Codex-style 等实验分支。
@@ -35,6 +35,8 @@
 - [x] 第四阶段 第 18 课：ToolSpec 标准化、ToolResult 与最小 trace
 - [x] 第四阶段 第 19 课：ToolError 与更正式的运行 trace
 - [x] 第四阶段 第 20 课：多步 Agent Loop 与工具安全边界
+- [x] 第四阶段 第 21 课：Tool Use 全链路复盘与轻量架构边界整理
+- [ ] 第五阶段 第 22 课：区分短期 Session 与长期 Memory
 
 ## 每日日志
 
@@ -668,3 +670,72 @@
   - `agent/chat.py` 仍然是后续最值得重构的文件，但现在已经有足够清楚的函数边界，可以作为未来拆出 `AgentRuntime` 的依据。
 - 下次开始前建议复盘顺序：
   - `ToolSpec -> ToolParameters -> ToolResult/ToolError -> tools registry -> planner -> _run_agent_loop -> observation -> AgentStepTrace -> confirmation`。
+
+### 2026-05-25
+
+#### 开始：第四阶段第 21 课 — Tool Use 全链路复盘与轻量架构边界整理。
+
+- 本课问题意识：
+  - 第 16-20 课已经把 Tool Use 能力打通，但功能分布在 `agent/`、`tools/`、`commands/`、`memory/` 多个模块里。
+  - 如果不先复盘数据流，下一阶段直接进入 Memory 或 RAG，很容易只记住“哪里有代码”，但忘记“数据为什么这样流动”。
+  - 当前不适合马上大拆 `AgentRuntime` / `Policy` / `TraceLogger`，因为抽象还没有被更多能力反复验证。
+- 本课目标：
+  - 画清楚用户输入到 final answer 的 Tool Use 全链路。
+  - 明确 planner、Agent Loop、ToolSpec、ToolResult、observation、trace、confirmation 各自的职责。
+  - 给后续重构留下轻量地图，而不是立即搬目录。
+- 已完成：
+  - 新增 `docs/TOOL_USE_FLOW.md`，用一份文档复盘 Tool Use 数据流。
+  - 在 `README.md` 中补充 docs 目录和 Tool Use Flow 复盘入口。
+
+#### 完成：第四阶段第 21 课 — Tool Use 全链路复盘与轻量架构边界整理。
+
+- 第 21 课收尾结论：
+  - 已完成 Tool Use 全链路复盘文档。
+  - 已明确当前暂不大拆 `AgentRuntime`、`Policy`、`TraceLogger`，先把现有数据流作为后续重构地图。
+  - 第五阶段可以开始进入 Memory 进阶。
+
+#### 开始：第五阶段第 22 课 — 区分短期 Session 与长期 Memory。
+
+- 本课问题意识：
+  - `Session.messages` 解决的是当前会话上下文，它会被 `trim()` 裁剪，也会随着 `/new` 切换会话。
+  - 长期 Memory 要解决的是跨会话稳定保存的信息，例如用户偏好、学习状态、重要事实。
+  - 如果继续把所有东西都塞进 `Session`，后续会分不清“当前聊天上下文”和“值得长期沉淀的信息”。
+- 本课目标：
+  - 新增最小 `MemoryStore`，让长期记忆拥有独立存储边界。
+  - 先通过命令手动写入和查看长期记忆，不急着让 Agent 自动记忆。
+  - 为下一步“把长期记忆注入 prompt”留下转换点。
+- 已完成：
+  - 新增 `memory/store.py`，包含 `MemoryItem` 和 `MemoryStore`。
+  - `AppContext` 增加 `memory_store`。
+  - 新增 `/remember` 命令保存长期记忆。
+  - 新增 `/memories` 命令查看最近长期记忆。
+  - 普通聊天调用模型前，会通过 `build_messages_with_memory()` 临时注入长期记忆。
+  - Agent Loop 的 `decide_agent_step()` 会收到长期记忆文本，规划工具或最终回答时可参考用户偏好和稳定事实。
+  - 长期记忆不会写回 `Session.messages`，避免短期会话历史和跨会话记忆混在一起。
+  - 新增 `docs/MEMORY_FLOW.md`，复盘短期 Session、长期 Memory、写入、读取和 prompt 注入的数据流。
+  - README 增加长期记忆命令、目录说明和 Memory Flow 文档入口。
+
+#### 完成：第五阶段第 22 课 — 区分短期 Session 与长期 Memory。
+
+- 第 22 课收尾结论：
+  - 短期 `Session` 和长期 `MemoryStore` 已经拥有清晰边界。
+  - 长期记忆已经可以通过命令手动写入、查看，并保存到本地 JSON。
+  - 调用模型前会临时注入长期记忆，但不会污染 `Session.messages`。
+  - 当前先不做自动记忆，下一步可以继续增强命令层，或引入“候选记忆 + 用户确认”的自动记忆流程。
+
+#### 开始并完成：第五阶段第 23 课 — 长期记忆的类型与生命周期管理。
+
+- 本课目标：
+  - 让长期记忆区分事实、偏好和学习状态。
+  - 让用户能查看并删除指定长期记忆。
+  - 保证删除记忆后，新记忆不会复用旧 ID。
+- 已完成：
+  - `/remember [fact|preference|learning] 内容` 支持显式选择记忆类型；省略类型时默认 `fact`。
+  - 新增 `/memory 记忆ID`，查看单条记忆的 ID、类型、创建时间和内容。
+  - 新增 `/forget 记忆ID`，删除指定长期记忆并立刻保存。
+  - `MemoryStore` 新增 `get()` 与 `delete()`。
+  - 记忆 ID 从“列表长度 + 1”改为“最大已用编号 + 1”，避免删除后产生重复 ID。
+  - 更新 README 与 Memory Flow 文档中的命令说明。
+- 本课收尾结论：
+  - 长期记忆已经具备最小生命周期：创建、列出、查看、删除。
+  - 下一步可以研究更新、去重、搜索，或进入“候选记忆 + 用户确认”的自动记忆流程。

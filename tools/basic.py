@@ -1,8 +1,8 @@
 from datetime import datetime
 from typing import Any
 
-from tools.error_codes import ERROR_INVALID_ARGUMENTS
-from tools.spec import ToolResult
+from models import ToolResult
+from models.errors import ERROR_INVALID_ARGUMENTS
 
 
 def get_current_time(arguments: dict[str, Any]) -> ToolResult:

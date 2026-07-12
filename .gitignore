@@ -4,6 +4,9 @@
 # 对话历史日志
 logs/
 
+# 本地长期记忆
+memory_data/
+
 # Python 缓存
 __pycache__/
 *.pyc

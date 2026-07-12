@@ -5,10 +5,10 @@ description: >-
   项目从最小 LLM 命令行聊天助手起步，逐步建立命令系统、Session、Tool Use、
   Agent Loop、Memory、RAG、运行 trace、安全边界和可扩展架构，用于扎实学习智能体工程。
 metadata:
-  current_stage: 4
-  completed_stage: 3
-  current_lesson: 20
-  completed_lessons: 19
+  current_stage: 5
+  completed_stage: 4
+  current_lesson: 22
+  completed_lessons: 21
   difficulty: beginner-to-intermediate
   prerequisites:
     - Python 基础语法（变量、函数、循环、列表、字典）
@@ -99,10 +99,10 @@ metadata:
 ## 当前状态
 
 - 当前项目名：Nexus Agent Kernel
-- 当前阶段：第四阶段，Tool Use 与 Agent Loop
-- 已完成课程：第 1-19 课
-- 下一课：第 20 课，多步 Agent Loop 与工具安全边界
-- 当前重点：从单步工具调用升级为可控的多步 Agent Loop
+- 当前阶段：第五阶段，Memory 进阶
+- 已完成课程：第 1-21 课
+- 当前课程：第 22 课，区分短期 Session 与长期 Memory
+- 当前重点：让长期记忆从当前会话上下文中分离出来
 
 ## 教学节奏要求
 
@@ -215,7 +215,7 @@ Nexus Agent Kernel v0.1 应具备：
 - `AppContext` 是运行时上下文，不是业务模型本身。
 - 工程化不是盲目拆文件，而是让职责边界更清楚。
 
-### 第四阶段：Tool Use 与 Agent Loop（当前阶段，第 16-20 课）
+### 第四阶段：Tool Use 与 Agent Loop（第 16-21 课，已完成）
 
 目标：让 Agent 从“只会聊天”变成“能判断并调用工具”。
 
@@ -326,6 +326,18 @@ Python 把 tools 定义发给模型
 - 对写文件、执行命令等危险工具增加用户确认。
 - 为未来 Claude Code-style / Codex-style 能力做准备。
 
+#### 第 21 课：Tool Use 全链路复盘与轻量架构边界整理
+
+目标：在进入 Memory 进阶前，把第 16-20 课形成的 Tool Use 链路复盘清楚。
+
+计划：
+
+- 复盘 `user input -> planner -> tool -> observation -> trace -> final answer` 的完整数据流。
+- 明确 `ToolSpec`、`ToolParameters`、`ToolResult`、`ToolError`、`AgentStepTrace` 和 `PendingToolCall` 的职责。
+- 新增轻量文档 `docs/TOOL_USE_FLOW.md`，作为后续重构前的地图。
+- 暂时不大拆 `AgentRuntime` / `Policy` / `TraceLogger`，等 Memory、RAG、危险工具等复杂度继续出现后再拆。
+- 为第五阶段 Memory 进阶做准备：接下来要区分“当前会话上下文”和“长期可沉淀记忆”。
+
 ### 第五阶段：Memory 进阶
 
 目标：让 Agent 不只是记住当前窗口，而是能沉淀长期信息。
@@ -337,6 +349,18 @@ Python 把 tools 定义发给模型
 - 建立最小用户画像，记录稳定偏好和学习状态。
 - 建立重要事件记忆。
 - 训练 Agent 判断什么值得记住，什么只是当前上下文。
+
+#### 第 22 课：区分短期 Session 与长期 Memory
+
+目标：先把当前会话上下文和跨会话长期记忆分成两个明确概念。
+
+计划：
+
+- 新增 `MemoryStore`，用本地 JSON 保存长期记忆。
+- 在 `AppContext` 中同时放 `session` 和 `memory_store`。
+- 新增 `/remember`，手动保存一条长期记忆。
+- 新增 `/memories`，查看最近长期记忆。
+- 暂时不自动注入 prompt，下一课再学习长期记忆如何进入模型上下文。
 
 ### 第六阶段：RAG 框架技术评审与集成实战
 

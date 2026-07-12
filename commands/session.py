@@ -1,9 +1,10 @@
 from datetime import datetime
 
-from agent.chat import continue_agent_loop_after_confirmed_tool
+from agent import continue_agent_loop_after_confirmed_tool
 from app_context import AppContext
 from commands.command import Command
-from memory import Session, list_session_names, load_session_data
+from memory import MEMORY_KINDS, MemoryKind
+from session import Session, list_session_names, load_session_data
 
 
 class SaveCommand(Command):
@@ -39,6 +40,86 @@ class HistoryCommand(Command):
                 print(f"AI: {content}")
             print()
 
+        return True
+
+
+class RememberCommand(Command):
+    name = "/remember"
+    description = "保存长期记忆，可选类型 fact/preference/learning"
+
+    def execute(self, context: AppContext, args: list[str]) -> bool:
+        kind: MemoryKind = "fact"
+        if args and args[0] in MEMORY_KINDS:
+            kind = args[0]
+            args = args[1:]
+
+        content = " ".join(args).strip()
+        if not content:
+            print("用法：/remember [fact|preference|learning] 要长期记住的内容")
+            return True
+
+        memory = context["memory_store"].add(content, kind)
+        print(f"System: 已保存长期记忆 {memory['id']} [{memory['kind']}]。")
+        return True
+
+
+class MemoriesCommand(Command):
+    name = "/memories"
+    description = "查看最近长期记忆"
+
+    def execute(self, context: AppContext, args: list[str]) -> bool:
+        memories = context["memory_store"].list_recent()
+
+        if not memories:
+            print("暂无长期记忆。")
+            return True
+
+        print("--- 最近长期记忆 ---")
+        for memory in memories:
+            print(
+                f"{memory['id']} [{memory['kind']}] "
+                f"{memory['created_at']} - {memory['content']}"
+            )
+
+        return True
+
+
+class MemoryCommand(Command):
+    name = "/memory"
+    description = "按 ID 查看长期记忆详情"
+
+    def execute(self, context: AppContext, args: list[str]) -> bool:
+        if not args:
+            print("用法：/memory 记忆ID")
+            return True
+
+        memory = context["memory_store"].get(args[0])
+        if memory is None:
+            print(f"找不到长期记忆：{args[0]}")
+            return True
+
+        print(f"ID: {memory['id']}")
+        print(f"类型: {memory['kind']}")
+        print(f"创建时间: {memory['created_at']}")
+        print(f"内容: {memory['content']}")
+        return True
+
+
+class ForgetCommand(Command):
+    name = "/forget"
+    description = "按 ID 删除长期记忆"
+
+    def execute(self, context: AppContext, args: list[str]) -> bool:
+        if not args:
+            print("用法：/forget 记忆ID")
+            return True
+
+        memory_id = args[0]
+        if not context["memory_store"].delete(memory_id):
+            print(f"找不到长期记忆：{memory_id}")
+            return True
+
+        print(f"System: 已删除长期记忆 {memory_id}。")
         return True
 
 

@@ -33,13 +33,3 @@ def get_config_summary():
         "max_tokens": MAX_TOKENS,
         "max_history_rounds": MAX_HISTORY_ROUNDS,
     }
-    
-
-
-if __name__ == "__main__":
-    api_key = require_api_key()
-    print("API key:", api_key[:8] + "...")
-    print("Base URL:", BASE_URL)
-    print("Model:", MODEL)
-    print("Temperature:", TEMPERATURE)
-    print("Max tokens:", MAX_TOKENS)

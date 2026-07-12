@@ -2,7 +2,8 @@ from agent import handle_agent_message
 from commands import get_commands
 from commands.parser import parse_command
 from app_context import AppContext
-from memory import Session
+from memory import MemoryStore
+from session import Session
 from tools import get_tools
 
 try:
@@ -17,6 +18,7 @@ def create_app_context() -> AppContext:
     tools = get_tools()
     context: AppContext = {
         "session": Session(),
+        "memory_store": MemoryStore.load(),
         "commands": commands,
         "tools": tools,
     }

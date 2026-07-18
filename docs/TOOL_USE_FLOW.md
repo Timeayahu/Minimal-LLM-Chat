@@ -21,7 +21,7 @@ user input
 -> ToolSpec.run()
 -> ToolResult / ToolError
 -> observations
--> AgentStepTrace
+-> TraceEvent / JsonlTraceLogger
 -> final answer
 ```
 
@@ -73,7 +73,7 @@ planner 只负责决定下一步动作，不负责执行工具。它必须返回
 它会处理两种情况：
 
 1. 第一轮没有 observation，并且允许 fallback：交给普通聊天流程。
-2. 已经有 observation：把 final answer 输出给用户，并补到最近一条 trace。
+2. 已经有 observation：把 final answer 输出给用户，并新增 `final_answer` 事件。
 
 这样保留了普通聊天体验：不是每句话都强行变成工具任务。
 
@@ -153,7 +153,7 @@ plan -> act -> observe -> continue/final
 
 ## Trace
 
-每个工具步骤或 Agent 错误会记录为 `AgentStepTrace`。
+每个 planner、工具、确认、最终回答或 Agent 错误会实时记录为 `TraceEvent`，并由 `JsonlTraceLogger` 追加落盘。
 
 trace 记录的信息包括：
 
@@ -192,11 +192,13 @@ Agent 不会自动执行它，而是保存为 `pending_tool_call`，并提示用
 当前实现仍然是教学版，不是最终架构：
 
 - planner 仍使用 JSON prompt，不是正式 OpenAI tool calling
-- `agent/chat.py` 仍然偏长
-- Policy 还没有独立模块
-- TraceLogger 还没有独立接口
+- `nexus/agent/loop.py` 已缩成函数式兼容入口，核心编排位于 `nexus/agent/runtime.py`
+- `nexus/agent/policy.py` 负责把 Planner 输出校验为 `ToolRequest`
+- 自动调用和 `/confirm` 通过 `nexus/agent/tool_execution.py` 共用同一执行边界
+- `nexus/agent/run_recorder.py` 统一补齐 Run 关联字段并记录失败终态
+- TraceLogger 已有独立接口，但还没有 metrics 聚合和外部观测后端
 - ToolRegistry 仍然是 `dict[str, ToolSpec]`
 
 这些暂时不是问题。第 20 课的目标是先打通最小闭环，第 21 课的目标是把这条链路复盘清楚。
 
-后续当 Memory、RAG、文件工具、命令工具加入后，再把稳定边界拆成更正式的 `AgentRuntime`、`Policy`、`ToolRegistry` 和 `TraceLogger`。
+当前已完成 `AgentRuntime`、Policy、工具执行器和 `RunRecorder` 的第一轮拆分。后续当工具数量、权限类型或入口增加后，再升级 `ToolRegistry`、`AgentService` 和更完整的权限策略。

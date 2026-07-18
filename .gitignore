@@ -4,6 +4,9 @@
 # 对话历史日志
 logs/
 
+# Agent 运行 Trace
+traces/
+
 # 本地长期记忆
 memory_data/
 
@@ -17,3 +20,7 @@ __pycache__/
 
 # 个人成长记录
 LEARNER_PROFILE.md
+
+#文件类
+docs/
+skill/

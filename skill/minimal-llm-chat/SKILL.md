@@ -100,9 +100,9 @@ metadata:
 
 - 当前项目名：Nexus Agent Kernel
 - 当前阶段：第五阶段，Memory 进阶
-- 已完成课程：第 1-21 课
-- 当前课程：第 22 课，区分短期 Session 与长期 Memory
-- 当前重点：让长期记忆从当前会话上下文中分离出来
+- 已完成课程：第 1-24 课
+- 当前课程：第 24 课已完成，Agent 运行可观测性与 Trace 持久化
+- 当前重点：会话快照、长期 Memory 和 Runtime Trace 已分开，下一步继续完善 Memory 召回和生命周期
 
 ## 教学节奏要求
 
@@ -350,7 +350,7 @@ Python 把 tools 定义发给模型
 - 建立重要事件记忆。
 - 训练 Agent 判断什么值得记住，什么只是当前上下文。
 
-#### 第 22 课：区分短期 Session 与长期 Memory
+#### 第 22 课：区分短期 Session 与长期 Memory（已完成）
 
 目标：先把当前会话上下文和跨会话长期记忆分成两个明确概念。
 
@@ -360,7 +360,21 @@ Python 把 tools 定义发给模型
 - 在 `AppContext` 中同时放 `session` 和 `memory_store`。
 - 新增 `/remember`，手动保存一条长期记忆。
 - 新增 `/memories`，查看最近长期记忆。
-- 暂时不自动注入 prompt，下一课再学习长期记忆如何进入模型上下文。
+- 普通聊天和 Agent planner 在调用模型前临时注入长期记忆，不污染 `Session.messages`。
+
+#### 第 23 课：长期记忆的类型与生命周期管理（已完成）
+
+- 支持 `fact`、`preference`、`learning` 三类记忆。
+- 支持按 ID 创建、列出、查看和删除。
+- 删除后不复用旧 ID。
+
+#### 第 24 课：Agent 运行可观测性与 Trace 持久化（已完成）
+
+- 区分 Conversation、Runtime Trace、Operational Log 和 Metrics。
+- 新增独立 JSONL TraceStore，运行事件不再等待 Session 保存。
+- 通过 `session_id` / `run_id` / `event_id` 还原一次 Agent Loop。
+- 记录 planner、tool、confirmation、final 和终态事件及耗时。
+- 新增最小敏感字段脱敏与自动化测试。
 
 ### 第六阶段：RAG 框架技术评审与集成实战
 
@@ -373,7 +387,7 @@ Python 把 tools 定义发给模型
 - 最终选出一个主框架作为第六阶段实战对象。
 - 使用该框架完成资料导入、切分、索引、检索、引用来源和基于资料回答。
 - 重点学习框架里的 RAG 数据流，而不是重复实现基础检索逻辑。
-- 分析框架抽象如何映射到当前项目里的 `agent/`、`tools/`、`memory/` 和未来 `rag/` 边界。
+- 分析框架抽象如何映射到当前项目里的 `nexus/agent/`、`nexus/tools/`、`nexus/context/` 和未来 `nexus/knowledge/` 边界。
 - 保留一个轻量适配层，避免业务代码被某个框架完全锁死。
 - 区分 Memory 和 RAG：Memory 记录用户与经历，RAG 检索外部知识。
 
@@ -396,54 +410,37 @@ Python 把 tools 定义发给模型
 - 再把能力组件通过依赖注入接入 Runtime。
 - 每一步都保持 CLI 当前行为可运行，避免一次性改坏主路径。
 
-目标结构：
+演进目标（在现有 `nexus/` 包内按真实复杂度逐步增加，而不是再次平铺根目录）：
 
 ```text
 Nexus Agent Kernel/
-├── interfaces/
-│   ├── cli_adapter.py        # CLI 输入输出适配
-│   ├── http_adapter.py       # 未来 HTTP 入口
-│   └── im_adapters/          # 未来飞书、企业微信等入口
-├── application/
-│   └── agent_service.py      # Facade / Use Case
-├── agent/
-│   ├── runtime.py            # AgentRuntime / Orchestrator
-│   ├── planner.py            # Planner strategy
-│   ├── prompt_builder.py     # Prompt / messages 构造
-│   ├── policy.py             # 工具权限、确认、拒绝、降级
-│   └── trace.py              # Trace 事件模型
-├── tools/
-│   ├── spec.py               # ToolSpec、ToolResult、ToolError
-│   ├── registry.py           # ToolRegistry
-│   └── basic.py
-├── memory/
-│   ├── session.py            # 短期会话
-│   ├── store.py              # MemoryStore 抽象
-│   ├── profile.py            # 用户画像
-│   └── storage.py            # 文件 / SQLite 等实现
-├── rag/
-│   ├── adapter.py            # RAG 框架适配层
-│   ├── retriever.py
-│   └── index.py
-├── infrastructure/
-│   ├── llm_provider.py       # LLMClient / Provider
-│   ├── config.py
-│   └── repositories.py
-├── commands/                 # 用户直接控制程序的命令
-├── models.py                 # AgentRequest / AgentResponse 等核心类型
-└── main.py
+├── main.py                    # 稳定启动入口
+└── nexus/
+    ├── app.py                 # 依赖组装
+    ├── cli/                   # 当前 CLI；未来可增加 HTTP / IM adapter
+    ├── agent/
+    │   ├── contracts.py       # 未来 AgentRequest / AgentResponse
+    │   ├── runtime.py         # 当前 AgentRuntime / Orchestrator
+    │   ├── planner.py
+    │   ├── prompt_builder.py
+    │   ├── policy.py
+    │   └── observability.py
+    ├── tools/                 # ToolSpec、ToolRegistry 与具体工具
+    ├── context/               # Session、Memory 与存储实现
+    ├── knowledge/             # 未来 RAG 框架适配层
+    └── llm/                   # 可注入的 LLM Provider
 ```
 
 推荐拆分顺序：
 
-1. 从 `models.py` 增加 `AgentRequest` / `AgentResponse` 开始，只做类型和数据流，不改行为。
-2. 把 `main.py` 普通输入分支改为通过 `CLIAdapter -> AgentService` 调用。
-3. 从 `agent/chat.py` 拆出 `AgentRuntime.run(request)`，保留当前多步 loop 行为。
-4. 把 `tools` 的 `dict[str, ToolSpec]` 升级为 `ToolRegistry`。
-5. 把 `llm_client.py` 从模块级函数升级为可注入 `LLMClient` / `LLMProvider`。
+1. 在 `nexus/agent/contracts.py` 增加 `AgentRequest` / `AgentResponse`，先统一类型和数据流，不改行为。
+2. 让 `nexus/cli/main.py` 的普通输入分支通过 `AgentService` 调用。
+3. 已从 `nexus/agent/loop.py` 拆出 `AgentRuntime`，保留当前多步 loop 和函数式兼容入口。
+4. 把 `nexus/tools/` 的 `dict[str, ToolSpec]` 升级为 `ToolRegistry`。
+5. 把 `nexus/llm/client.py` 从模块级函数升级为可注入 `LLMClient` / `LLMProvider`。
 6. 把 Prompt 组装从 planner 和 chat 里拆到 `PromptBuilder`。
-7. 把工具只读、确认、拒绝、降级逻辑拆到 `Policy`。
-8. 把 session 内 trace 列表升级为 `TraceLogger` 接口，先用内存实现，再考虑文件或数据库。
+7. 已建立最小工具请求 Policy；等危险工具类型增加后，再补允许、拒绝、降级等完整权限策略。
+8. 将当前 JSONL `TraceLogger` 保持为独立依赖，需要复杂查询时再增加 SQLite 或外部观测实现。
 9. 增加 HTTP / IM Adapter 时，只接入 `AgentService`，不修改 Runtime。
 
 ### 第八阶段：顶级 Agent 亮点实验
@@ -466,19 +463,18 @@ Nexus Agent Kernel/
 
 ```text
 Nexus Agent Kernel/
-├── main.py
-├── app_context.py
-├── config.py
-├── llm_client.py
-├── chat.py
-├── commands/
-├── tools/
-├── memory/
-├── models.py
-├── prompts.py
+├── main.py                    # 极薄启动入口
+├── nexus/
+│   ├── app.py                # AppContext 与依赖组装
+│   ├── settings.py           # 配置
+│   ├── cli/                  # CLI 主循环和命令
+│   ├── agent/                # Planner、Loop 与观测
+│   ├── context/              # Session 与 Memory
+│   ├── tools/                # 工具模型、实现和注册表
+│   └── llm/                  # Prompt 与模型调用
+├── tests/
+├── docs/
 ├── requirements.txt
-├── PROGRESS.md
-├── README.md
 └── skill/minimal-llm-chat/
 ```
 

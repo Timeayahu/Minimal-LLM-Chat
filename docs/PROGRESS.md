@@ -5,13 +5,13 @@
 - 项目：Nexus Agent Kernel（教学型通用 Agent 底座）
 - 开始日期：2026-05-03
 - 当前阶段：第五阶段 — Memory 进阶
-- 当前课程：第 22 课进行中（区分短期 Session 与长期 Memory）
-- 已完成：第 1-21 课主体内容
+- 当前课程：第 24 课已完成（Agent 运行可观测性与 Trace 持久化）
+- 已完成：第 1-24 课主体内容
 - 课程路线：阶段式持续迭代
 - 长期目标：构建一个小而扎实、可扩展、可研究的通用 Agent Kernel，
   后续可扩展为 Hermes-style、Claude Code-style、Codex-style 等实验分支。
-- 最新架构判断：已将 `Agent_Kernel_架构分层与设计模式说明.docx` 的核心思想纳入课程 Skill。
-  当前不做一次性大重构，先以“架构北极星 + 渐进式重构触发条件”的方式指导后续课程。
+- 最新架构判断：已完成 feature-first 目录整理，并从原始 Loop 中拆出 `AgentRuntime`、
+  工具 Policy、共享执行器和 `RunRecorder`；下一批抽象等待新入口或多 Provider 的真实需求触发。
 
 ## 课程完成状态
 
@@ -36,9 +36,23 @@
 - [x] 第四阶段 第 19 课：ToolError 与更正式的运行 trace
 - [x] 第四阶段 第 20 课：多步 Agent Loop 与工具安全边界
 - [x] 第四阶段 第 21 课：Tool Use 全链路复盘与轻量架构边界整理
-- [ ] 第五阶段 第 22 课：区分短期 Session 与长期 Memory
+- [x] 第五阶段 第 22 课：区分短期 Session 与长期 Memory
+- [x] 第五阶段 第 23 课：长期记忆的类型与生命周期管理
+- [x] 第五阶段 第 24 课：Agent 运行可观测性与 Trace 持久化
 
 ## 每日日志
+
+### 2026-07-18
+
+- 完成：将散落在仓库根目录的运行源码统一迁入 `nexus/` 应用包。
+- 完成：按 `cli`、`agent`、`context`、`tools`、`llm` 五类功能边界重新组织模块。
+- 完成：把消息、Trace 和工具相关的小型模型放回其所属功能域，移除只起中转作用的 `models/` 包。
+- 完成：保留根目录 `main.py` 作为稳定且极薄的启动入口。
+- 完成：同步测试导入和架构文档，现有 8 个自动化测试全部通过。
+- 设计判断：当前规模不引入更深的 `domain/application/infrastructure` 套娃分层；当新入口、Provider 或持久化实现真正出现时再拆接口。
+- 完成：把 `nexus/agent/loop.py` 缩为兼容入口，将 Run 生命周期和多步编排迁入 `AgentRuntime`。
+- 完成：新增工具请求 Policy 和共享工具执行器，自动调用与 `/confirm` 不再各自维护执行计时逻辑。
+- 完成：新增 `RunRecorder`，统一 Trace 关联字段、Planner 错误和 Run 失败终态。
 
 ### 2026-05-03
 
@@ -739,3 +753,31 @@
 - 本课收尾结论：
   - 长期记忆已经具备最小生命周期：创建、列出、查看、删除。
   - 下一步可以研究更新、去重、搜索，或进入“候选记忆 + 用户确认”的自动记忆流程。
+
+### 2026-07-18
+
+#### 完成：第五阶段第 24 课 — Agent 运行可观测性与 Trace 持久化。
+
+- 问题意识：
+  - 旧 `Session.traces` 只在内存中 append，直到 `/save`、`/new`、`/load` 或 `/exit` 才随会话快照落盘。
+  - 后台运行中途崩溃会丢失未保存 Trace，也无法按一次用户请求还原完整执行链。
+- 已完成：
+  - 新增 `TraceEvent`，统一 `event_id`、`session_id`、`run_id`、状态、步骤、耗时、数据和错误字段。
+  - 新增 `TraceLogger` 最小接口和 `JsonlTraceLogger`，每个事件发生时立即追加到 `traces/trace_YYYYMMDD.jsonl`。
+  - 接入 `run_started`、planner、tool、confirmation、final、run completed/failed/cancelled 事件。
+  - 确认暂停后继续使用原 `run_id`，保证一次任务不被拆成两条链路。
+  - `/trace [run_id]` 优先读取独立 TraceStore，并兼容历史 `Session.traces`。
+  - 对 API Key、token、password、secret 等常见敏感字段做最小落盘脱敏。
+  - 新增 8 个自动化测试，验证即时落盘、查询、脱敏、损坏行容错、事件顺序、确认后 run_id 连续性、未处理异常终态和旧会话兼容。
+- 本课结论：
+  - Conversation 快照和 Runtime Trace 已有独立存储边界。
+  - JSONL TraceStore 是新的可观测真实来源。
+  - 后续可增加模型 token 用量、首字延迟、按错误类型聚合和 SQLite TraceStore。
+
+#### 重构收口：移除 Session Trace 双写。
+
+- 删除 `AgentStepTrace`、`AgentStepErrorData` 和 `Session.traces`。
+- 删除 Agent Loop、`/confirm` 和 `/cancel` 对旧内存 Trace 的写入。
+- `/trace` 只读取 JSONL TraceStore，不再使用 Session 回退数据。
+- Session 快照不再保存 `traces`；加载旧会话时会忽略历史 `traces` 字段，不影响 messages 恢复。
+- 可观测完成从“双写过渡”到“JSONL 单一数据源”的收口。

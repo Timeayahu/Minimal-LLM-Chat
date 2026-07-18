@@ -27,6 +27,8 @@ Hermes-style、Claude Code-style、Codex-style 等智能体架构亮点的实验
 - 普通自然语言输入时，Agent 可自主判断是否需要调用工具
 - 通过 `.env` 配置模型、API 地址和生成参数
 
+
+
 ## 文件结构
 
 ```text
@@ -48,6 +50,8 @@ Nexus Agent Kernel/
 └── memory_data/      # 本地长期记忆，不提交 Git
 ```
 
+
+
 ## 安装
 
 建议先进入你的 Python 虚拟环境，然后安装依赖：
@@ -55,6 +59,8 @@ Nexus Agent Kernel/
 ```bash
 pip install -r requirements.txt
 ```
+
+
 
 ## 配置
 
@@ -101,6 +107,8 @@ python main.py
 /cancel 取消待确认工具
 /exit   保存并退出
 ```
+
+
 
 ## 学习重点
 
@@ -154,16 +162,5 @@ v0.1 完成标准包括：
 - 有 trace 日志，能观察工具调用过程
 - 架构分层清楚，方便未来扩展不同 Agent 风格
 
-未来可以基于这个底座实验：
 
-- Hermes-style Agent：长期记忆、用户画像、人格一致性
-- Claude Code-style Agent：代码库理解、文件搜索、补丁编辑、测试运行
-- Codex-style Agent：工程化执行、沙箱权限、持续验证、交付总结
 
-## 我的学习总结
-
-在这个很简单的命令行项目中，我通过与ai交互学习的方式，了解了以下内容：
-- 一个标准的项目所具备的结构，包括：.env存放配置文件、主文件、requirements.md、README.md
-- agent的简单记忆存储
-- 配置与后段代码分离，尽量减少代码的修改，把代码的扩展性做好
-- 文件的读写操作

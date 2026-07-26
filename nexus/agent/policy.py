@@ -10,7 +10,7 @@ from nexus.agent.errors import (
 from nexus.tools import ToolError, ToolSpec
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True) # frozen=true: 对象字段初始化后不可再做更改
 class ToolRequest:
     """已经通过 Agent 本地校验、可以等待确认或执行的工具请求。"""
 
@@ -28,7 +28,14 @@ def resolve_tool_request(
     plan: dict,
     tools: dict[str, ToolSpec],
 ) -> ToolRequest | ToolError:
-    """校验 planner 的工具计划，并解析成 ToolRequest 或结构化错误。"""
+    """校验 上游planner 生成的工具计划，并解析成 ToolRequest 或结构化错误。
+    核心包括三件事：
+    1. 检查工具名称是否正确
+    2. 根据名称查找真正注册的工具
+    3. 检查上游生成的工具参数是否为字典
+    
+    
+    """
     tool_name = plan.get("tool")
     if not isinstance(tool_name, str):
         return ToolError(

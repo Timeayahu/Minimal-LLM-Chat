@@ -3,11 +3,14 @@
 from dataclasses import dataclass
 from time import perf_counter
 
-from nexus.agent.chat import handle_chat_message
-from nexus.agent.errors import (
-    ERROR_INVALID_AGENT_ACTION,
-    ERROR_INVALID_FINAL_ANSWER,
+from nexus.agent.actions import (
+    ACTION_FINAL,
+    AgentActionParseError,
+    FinalAction,
+    ToolAction,
+    parse_agent_action,
 )
+from nexus.agent.chat import handle_chat_message
 from nexus.agent.observability import new_run_id
 from nexus.agent.planner import decide_agent_step
 from nexus.agent.policy import ToolRequest, resolve_tool_request
@@ -137,26 +140,36 @@ class AgentRuntime:
                 data={"observation_count": len(state.observations)},
             )
             planner_started_at = perf_counter()
-            plan = decide_agent_step(
+            planner_result = decide_agent_step(
                 state.user_input,
                 self.context["tools"],
                 state.observations,
                 self.context["memory_store"].to_messages_text(),
             )
             planner_duration_ms = (perf_counter() - planner_started_at) * 1000
-            plan_error = plan.get("error")
+            parsed_action = (
+                planner_result
+                if isinstance(planner_result, AgentActionParseError)
+                else parse_agent_action(planner_result)
+            )
 
-            if isinstance(plan_error, dict):
+            if isinstance(parsed_action, AgentActionParseError):
+                raw_plan = (
+                    planner_result
+                    if isinstance(planner_result, dict)
+                    else {"planner_result": str(planner_result)}
+                )
                 recorder.record_plan_error(
                     user_input=state.user_input,
-                    plan=plan,
-                    plan_error=plan_error,
+                    plan=raw_plan,
+                    plan_error=parsed_action.to_dict(),
                     step=step,
                     record_user_message=not state.has_saved_user_input,
                     duration_ms=planner_duration_ms,
                 )
                 return
 
+            plan = parsed_action
             recorder.emit(
                 "planner_completed",
                 status="success",
@@ -166,24 +179,8 @@ class AgentRuntime:
             )
             action = plan.get("action")
 
-            if action == "final":
+            if action == ACTION_FINAL:
                 self._handle_final_action(plan, step, state, recorder)
-                return
-
-            if action != "tool":
-                recorder.record_agent_error(
-                    user_input=state.user_input,
-                    step=step,
-                    tool_name="<planner>",
-                    arguments={},
-                    error=ToolError(
-                        kind=ERROR_INVALID_AGENT_ACTION,
-                        message=f"Agent 步骤里的 action 必须是 tool 或 final：{plan}",
-                        retryable=True,
-                        details={"plan": plan},
-                    ),
-                    record_user_message=not state.has_saved_user_input,
-                )
                 return
 
             if not self._handle_tool_action(plan, step, state, recorder):
@@ -203,7 +200,7 @@ class AgentRuntime:
 
     def _handle_final_action(
         self,
-        plan: dict,
+        plan: FinalAction,
         step: int,
         state: AgentLoopState,
         recorder: RunRecorder,
@@ -211,22 +208,6 @@ class AgentRuntime:
         """校验并保存最终回答，必要时回退到普通聊天流程。"""
         session = self.context["session"]
         final_answer = plan.get("answer")
-
-        if not isinstance(final_answer, str) or not final_answer:
-            recorder.record_agent_error(
-                user_input=state.user_input,
-                step=step,
-                tool_name="<planner>",
-                arguments={},
-                error=ToolError(
-                    kind=ERROR_INVALID_FINAL_ANSWER,
-                    message=f"最终回答必须是非空字符串：{plan}",
-                    retryable=True,
-                    details={"plan": plan},
-                ),
-                record_user_message=not state.has_saved_user_input,
-            )
-            return
 
         if (
             state.fallback_to_chat
@@ -268,7 +249,7 @@ class AgentRuntime:
 
     def _handle_tool_action(
         self,
-        plan: dict,
+        plan: ToolAction,
         step: int,
         state: AgentLoopState,
         recorder: RunRecorder,

@@ -9,7 +9,10 @@ from nexus.tools import ToolResult
 
 @dataclass(frozen=True)
 class ToolExecution:
-    """一次工具执行产生的请求、结构化结果和耗时。"""
+    """一次工具执行产生的请求、结构化结果和耗时。
+    把执行的请求，结果，耗时统一打包封装成执行实例
+    
+    """
 
     request: ToolRequest
     result: ToolResult

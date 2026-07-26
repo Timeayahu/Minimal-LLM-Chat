@@ -26,7 +26,7 @@ TRACES_DIR = Path("traces")
 SENSITIVE_KEY_PARTS = ("api_key", "authorization", "password", "secret", "token")
 
 
-class TraceLogger(Protocol):
+class TraceLogger(Protocol): # 声明约束类，满足该类写法的都可以被认为是这个类，tracelogger仅作为声明，供后续扩展用，不关心具体实现
     """Agent Runtime 依赖的最小 TraceLogger 接口，屏蔽具体存储方式。"""
 
     def record(self, event: TraceEvent) -> None:

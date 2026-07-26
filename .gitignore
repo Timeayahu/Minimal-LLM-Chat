@@ -21,6 +21,10 @@ __pycache__/
 # 个人成长记录
 LEARNER_PROFILE.md
 
-#文件类
-docs/
+# 本地文档默认不提交，项目治理主文档除外
+docs/*
+!docs/PROGRESS.md
+!docs/PROJECT_PLAN.md
+
+# 本地课程 Skill
 skill/

@@ -45,6 +45,8 @@ class PendingToolCall(TypedDict):
 class Session:
     """
     一个聊天会话。
+    什么是会话？会话记录了一个窗口里，完整的消息内容
+    思考：一个会话，只应该包括这些吗？
 
     dataclass 会根据下面的字段自动生成 __init__ 等基础方法，
     所以我们可以直接写 Session() 来创建一个全新的会话。

@@ -43,7 +43,7 @@ Nexus Agent Kernel/
 │   ├── tools/        # 工具模型、内置工具与注册表
 │   └── llm/          # Prompt 与 OpenAI-compatible 模型调用
 ├── tests/            # 自动化回归测试
-├── docs/             # 阶段复盘和架构说明
+├── docs/             # 项目规划与执行日志
 ├── skill/            # 本项目的教学课程 Skill
 ├── logs/             # 本地 Session 快照，不提交 Git
 ├── traces/           # 本地 JSONL 运行事件，不提交 Git
@@ -121,46 +121,14 @@ python main.py
 
 其中最重要的概念是 `messages`。它是一个列表，保存了 system、user、assistant 三类消息。模型本身不会自动记住上一轮对话，我们每次调用 API 时把完整 `messages` 发过去，它才表现得像有记忆。
 
-## 当前进展
+## 项目状态
 
-截至第五阶段第 24 课，项目已经从“能聊天、能手动调用工具”的命令行程序，演进为一个具备最小 Agent Kernel 形态的教学项目：
+Nexus Agent Kernel 当前定位为 **Agent 架构学习与研究项目**。首轮 MVP 将形成一个
+可运行、可观察、可对照实验的 `Agent Architecture Workbench`，用于理解和验证
+通用 Agent、Loop、Workflow、Graph、Context、Harness、Tool 与 Eval 等设计理念。
 
-- Agent 支持多步 `plan -> act -> observe -> final` 循环，并通过 `MAX_AGENT_STEPS` 限制无限循环风险
-- 工具系统包含 `ToolSpec`、`ToolParameters`、`ToolResult`、`ToolError` 和统一错误码
-- 工具参数会在 `ToolSpec.run()` 边界统一校验，Agent 和 `/tool` 手动入口共享同一套规则
-- 运行过程会实时保存为 JSONL `TraceEvent`，可以通过 `/trace` 复盘 planner、工具、确认、错误和最终回答
-- 需要确认的工具会进入 `pending_tool_call`，由 `/confirm` 或 `/cancel` 明确处理
-- 长期记忆开始从短期 Session 中分离，通过 `MemoryStore` 保存到本地 JSON 文件
-- 长期记忆会在调用模型前临时注入 prompt，不污染 `Session.messages`
-- 每次用户请求都有独立 `run_id`，关键运行事件会实时追加到 JSONL TraceStore
-- Session 快照和运行 Trace 已分开，JSONL TraceStore 是唯一观测数据源
-- 已从原始 Loop 中拆出 `AgentRuntime`、工具 Policy、共享执行器和 `RunRecorder`；CLI 继续通过兼容入口调用，外部行为不变
-- 后续再根据 HTTP/IM 入口和多 Provider 的真实需要，增加 `AgentService`、`AgentRequest` / `AgentResponse` 和 LLM Provider
+项目状态不在 README 中重复维护：
 
-相关复盘文档：
-
-- [Tool Use Flow](TOOL_USE_FLOW.md)
-- [Memory Flow](MEMORY_FLOW.md)
-- [Observability Flow](OBSERVABILITY.md)
-
-目录职责遵循以下边界：`cli` 只处理输入输出，`agent` 负责决策与编排，`context`
-管理 Session 和长期 Memory，`tools` 管理工具协议与实现，`llm` 只负责 Prompt 和模型调用。
-小型数据模型放在所属功能域内，不再集中堆入通用 `models/` 目录；只有形成跨功能域的稳定协议后，
-才新增独立 contracts 模块。
-
-## 长期目标
-
-本项目的目标是构建一个小而扎实、可扩展、可研究的通用 Agent Kernel。
-
-v0.1 完成标准包括：
-
-- 用户自然输入时，Agent 能自主决定是否调用工具
-- 有统一的 `ToolSpec`、工具注册表、工具结果和错误处理
-- 有多步 Agent Loop，支持计划、工具调用、观察结果和最终回答
-- 有短期 Session 记忆、会话摘要和最小长期用户画像
-- 有基于成熟框架集成的 RAG：能导入资料、检索片段、基于资料回答
-- 有 trace 日志，能观察工具调用过程
-- 架构分层清楚，方便未来扩展不同 Agent 风格
-
-
+- [项目计划](docs/PROJECT_PLAN.md)：愿景、MVP、十周路线、当前里程碑、完成标准与决策。
+- [执行日志](docs/PROGRESS.md)：每次实际完成的变更、问题、验证与遗留风险。
 

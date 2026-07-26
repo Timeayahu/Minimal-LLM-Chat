@@ -9,6 +9,7 @@ os.environ.setdefault("OPENAI_API_KEY", "test-key")
 from nexus.agent import handle_agent_message
 from nexus.agent.observability import JsonlTraceLogger
 from nexus.cli.context_commands import ConfirmCommand
+from nexus.cli.general_commands import ResetCommand
 from nexus.context import MemoryStore, Session
 from nexus.tools import get_tools
 
@@ -99,6 +100,34 @@ class AgentObservabilityTest(unittest.TestCase):
             self.assertEqual(event_types[-1], "run_completed")
             self.assertEqual({event["run_id"] for event in events}, {original_run_id})
 
+    def test_reset_cancels_a_paused_run_before_clearing_session(self) -> None:
+        """验证 /reset 清除 pending 前，会为原 Run 写入取消终态。"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            context = self._context(temp_dir)
+            pending_plan = {
+                "action": "tool",
+                "tool": "confirm_echo",
+                "arguments": {"text": "hello"},
+            }
+            with patch(
+                "nexus.agent.runtime.decide_agent_step",
+                return_value=pending_plan,
+            ):
+                handle_agent_message(context, "确认后 echo hello")
+
+            pending = context["session"].pending_tool_call
+            self.assertIsNotNone(pending)
+            original_run_id = pending["run_id"]
+
+            ResetCommand().execute(context, [])
+
+            events = context["trace_logger"].read_recent(run_id=original_run_id)
+            self.assertEqual(events[-1]["event_type"], "run_cancelled")
+            self.assertEqual(events[-1]["status"], "cancelled")
+            self.assertEqual(events[-1]["data"]["reason"], "session_reset")
+            self.assertIsNone(context["session"].pending_tool_call)
+            self.assertEqual(len(context["session"].messages), 1)
+
     def test_planner_error_ends_with_persisted_run_failed_event(self) -> None:
         """验证 planner 返回结构化错误时，会先记 planner_failed 再记 run_failed。"""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -120,6 +149,22 @@ class AgentObservabilityTest(unittest.TestCase):
             self.assertEqual(events[-2]["event_type"], "planner_failed")
             self.assertEqual(events[-1]["event_type"], "run_failed")
             self.assertEqual(events[-1]["error"]["kind"], "planner_invalid_json")
+
+    def test_unknown_action_is_rejected_by_runtime_parse_boundary(self) -> None:
+        """验证 Runtime 不信任 Planner 返回值，未知动作会在统一边界失败。"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            context = self._context(temp_dir)
+
+            with patch(
+                "nexus.agent.runtime.decide_agent_step",
+                return_value={"action": "wait"},
+            ):
+                handle_agent_message(context, "trigger invalid action")
+
+            events = context["trace_logger"].read_recent(session_id="test_session")
+            self.assertEqual(events[-2]["event_type"], "planner_failed")
+            self.assertEqual(events[-1]["event_type"], "run_failed")
+            self.assertEqual(events[-1]["error"]["kind"], "invalid_agent_action")
 
     def test_unhandled_exception_is_persisted_before_it_escapes(self) -> None:
         """验证未预期异常继续向上抛出前，TraceStore 已保存 run_failed 终态。"""

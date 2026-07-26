@@ -1,3 +1,5 @@
+from nexus.agent.observability import new_run_id
+from nexus.agent.run_recorder import RunRecorder
 from nexus.app import AppContext
 from nexus.cli.command import Command
 from nexus.settings import MODEL, get_config_summary
@@ -22,8 +24,22 @@ class ResetCommand(Command):
     description = "清空上下文"
 
     def execute(self, context: AppContext, args: list[str]) -> bool:
-        """重置当前 Session 的对话消息和待确认工具状态，不删除独立 JSONL Trace。"""
-        context["session"].reset()
+        """取消可能挂起的 Run，再重置消息和待确认状态，不删除已有 Trace。"""
+        session = context["session"]
+        pending_tool_call = session.pending_tool_call
+        if pending_tool_call is not None:
+            run_id = pending_tool_call.get("run_id") or new_run_id()
+            RunRecorder(context, run_id).emit(
+                "run_cancelled",
+                status="cancelled",
+                step=pending_tool_call["step"],
+                data={
+                    "tool_name": pending_tool_call["tool_name"],
+                    "reason": "session_reset",
+                },
+            )
+
+        session.reset()
         print("上下文已清空")
         return True
 

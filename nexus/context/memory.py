@@ -30,6 +30,7 @@ class MemoryStore:
 
     file_path: Path = MEMORY_FILE
     memories: list[MemoryItem] = field(default_factory=list)
+    next_id: int = 1
 
     @classmethod
     def load(cls, file_path: Path = MEMORY_FILE) -> "MemoryStore":
@@ -40,23 +41,55 @@ class MemoryStore:
         with file_path.open("r", encoding="utf-8") as file:
             data = json.load(file)
 
-        if not isinstance(data, list):
-            data = []
+        if isinstance(data, list):
+            # 兼容旧版：文件顶层直接保存 MemoryItem 列表。
+            raw_memories = data
+            stored_next_id = 1
+        elif isinstance(data, dict):
+            raw_memories = data.get("memories", [])
+            stored_next_id = data.get("next_id", 1)
+        else:
+            raw_memories = []
+            stored_next_id = 1
+
+        if not isinstance(raw_memories, list):
+            raw_memories = []
 
         memories = [
             item
-            for item in data
+            for item in raw_memories
             if isinstance(item, dict)
             and isinstance(item.get("id"), str)
+            and item.get("kind") in MEMORY_KINDS
             and isinstance(item.get("content"), str)
+            and isinstance(item.get("created_at"), str)
         ]
-        return cls(file_path=file_path, memories=memories)
+        highest_number = cls._highest_memory_number(memories)
+        next_id = (
+            stored_next_id
+            if isinstance(stored_next_id, int) and stored_next_id > 0
+            else 1
+        )
+        return cls(
+            file_path=file_path,
+            memories=memories,
+            next_id=max(next_id, highest_number + 1),
+        )
 
     def save(self) -> None:
         """保存长期记忆到 JSON 文件。"""
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         with self.file_path.open("w", encoding="utf-8") as file:
-            json.dump(self.memories, file, ensure_ascii=False, indent=2)
+            json.dump(
+                {
+                    "schema_version": 1,
+                    "next_id": self.next_id,
+                    "memories": self.memories,
+                },
+                file,
+                ensure_ascii=False,
+                indent=2,
+            )
 
     def add(self, content: str, kind: MemoryKind = "fact") -> MemoryItem:
         """生成不重复的记忆 ID，将新 MemoryItem 加入内存列表并立即持久化。"""
@@ -106,10 +139,20 @@ class MemoryStore:
 
     def _generate_memory_id(self) -> str:
         """生成一个简单、可读、递增且不会因删除而重复的记忆 ID。"""
+        next_number = max(
+            self.next_id,
+            self._highest_memory_number(self.memories) + 1,
+        )
+        self.next_id = next_number + 1
+        return f"mem_{next_number:04d}"
+
+    @staticmethod
+    def _highest_memory_number(memories: list[MemoryItem]) -> int:
+        """返回现有合法 `mem_NNNN` ID 的最大数字部分。"""
         highest_number = 0
-        for memory in self.memories:
+        for memory in memories:
             prefix, separator, suffix = memory["id"].partition("_")
             if prefix == "mem" and separator and suffix.isdigit():
                 highest_number = max(highest_number, int(suffix))
 
-        return f"mem_{highest_number + 1:04d}"
+        return highest_number

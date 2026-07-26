@@ -1,7 +1,12 @@
 import json
-from typing import Any
 
-from nexus.agent.errors import ERROR_PLANNER_INVALID_JSON
+from nexus.agent.actions import (
+    ACTION_FINAL,
+    ACTION_TOOL,
+    AgentAction,
+    AgentActionParseError,
+    parse_agent_action,
+)
 from nexus.llm.client import ask_llm
 from nexus.tools import ToolSpec
 
@@ -11,7 +16,7 @@ def decide_agent_step(
     tools: dict[str, ToolSpec],
     observations: list[str],
     long_term_memory_text: str = "暂无长期记忆。",
-) -> dict[str, Any]:
+) -> AgentAction | AgentActionParseError:
     """
     让模型决定 Agent Loop 的下一步。
 
@@ -49,9 +54,10 @@ def decide_agent_step(
                 "你只能输出 JSON，不要输出 Markdown，不要解释。"
                 "每一步只能选择一个动作。"
                 "如果还需要调用工具，输出："
-                '{"action": "tool", "tool": "工具名", "arguments": {"参数名": "参数值"}}。'
+                f'{{"action": "{ACTION_TOOL}", "tool": "工具名", '
+                '"arguments": {"参数名": "参数值"}}。'
                 "如果已有足够信息回答用户，输出："
-                '{"action": "final", "answer": "最终回答"}。'
+                f'{{"action": "{ACTION_FINAL}", "answer": "最终回答"}}。'
                 "arguments 必须符合对应工具的参数 schema。"
                 "不要重复调用已经得到足够观察结果的工具。"
             ),
@@ -68,17 +74,4 @@ def decide_agent_step(
         },
     ]
 
-    raw_answer = ask_llm(messages)
-
-    try:
-        return json.loads(raw_answer)
-    except json.JSONDecodeError:
-        return {
-            "action": "final",
-            "answer": f"模型没有返回合法 JSON：{raw_answer}",
-            "error": {
-                "kind": ERROR_PLANNER_INVALID_JSON,
-                "message": "模型没有返回合法 JSON Agent 步骤。",
-                "details": {"raw_answer": raw_answer},
-            },
-        }
+    return parse_agent_action(ask_llm(messages))

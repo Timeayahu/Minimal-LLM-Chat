@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from nexus.agent.observability import TraceLogger
 
 
-class AppContext(TypedDict):
+class AppContext(TypedDict): # 其实是个字典，用类的形式便于编译器检查类型
     """命令执行时能访问的应用上下文。"""
 
     session: Session
